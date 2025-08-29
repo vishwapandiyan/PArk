@@ -12,6 +12,9 @@ class ParkingSlotModel {
   final String? timeTo; // HH:mm
   final double? rating;
   final int? reviewCount;
+  final bool? hasShelter;
+  final bool? hasCCTV;
+  final bool? hasEVCharging;
 
   const ParkingSlotModel({
     required this.id,
@@ -22,6 +25,9 @@ class ParkingSlotModel {
     required this.photos,
     required this.pricing,
     required this.availableDurations,
+    this.hasShelter,
+    this.hasCCTV,
+    this.hasEVCharging,
     this.dimensions,
     this.timeFrom,
     this.timeTo,
@@ -44,6 +50,9 @@ class ParkingSlotModel {
       timeTo: json['time_to'] as String?,
       rating: (json['rating'] as num?)?.toDouble(),
       reviewCount: json['review_count'] as int?,
+      hasShelter: json['has_shelter'] as bool?,
+      hasCCTV: json['has_cctv'] as bool?,
+      hasEVCharging: json['has_ev_charging'] as bool?,
     );
   }
 
@@ -62,6 +71,9 @@ class ParkingSlotModel {
       'time_to': timeTo,
       'rating': rating,
       'review_count': reviewCount,
+      'has_shelter': hasShelter,
+      'has_cctv': hasCCTV,
+      'has_ev_charging': hasEVCharging,
     };
   }
 }

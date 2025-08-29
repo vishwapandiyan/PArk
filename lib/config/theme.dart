@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   static const Color primaryBlue = Color(0xFF2196F3);
@@ -15,12 +14,12 @@ class AppTheme {
         tertiary: accentOrange,
         surface: Colors.white,
       ),
-      textTheme: GoogleFonts.robotoTextTheme().copyWith(
-        titleLarge: GoogleFonts.montserrat(
+      textTheme: base.textTheme.copyWith(
+        titleLarge: base.textTheme.titleLarge?.copyWith(
           fontSize: 22,
           fontWeight: FontWeight.w600,
         ),
-        titleMedium: GoogleFonts.montserrat(
+        titleMedium: base.textTheme.titleMedium?.copyWith(
           fontSize: 18,
           fontWeight: FontWeight.w600,
         ),
@@ -39,7 +38,7 @@ class AppTheme {
           borderRadius: BorderRadius.circular(12),
         ),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
