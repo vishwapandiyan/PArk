@@ -5,12 +5,11 @@ class AppUserModel {
   final String name;
   final String email;
   final String phone;
-  final int? age;
+  final DateTime? dob;
   final UserRole role;
   final String? licenseUrl; // driver
   final String? landProofUrl; // owner
-  final String? dimensions; // owner (LxW)
-  final String? address; // owner
+  final String? carModelId; // driver - foreign key to car_models
   final bool? isVerified; // driver verification
 
   const AppUserModel({
@@ -19,13 +18,23 @@ class AppUserModel {
     required this.email,
     required this.phone,
     required this.role,
-    this.age,
+    this.dob,
     this.licenseUrl,
     this.landProofUrl,
-    this.dimensions,
-    this.address,
+    this.carModelId,
     this.isVerified,
   });
+
+  // Calculate age from date of birth
+  int? get age {
+    if (dob == null) return null;
+    final now = DateTime.now();
+    int age = now.year - dob!.year;
+    if (now.month < dob!.month || (now.month == dob!.month && now.day < dob!.day)) {
+      age--;
+    }
+    return age;
+  }
 
   factory AppUserModel.fromJson(Map<String, dynamic> json) {
     return AppUserModel(
@@ -33,12 +42,11 @@ class AppUserModel {
       name: json['name'] as String? ?? '',
       email: json['email'] as String? ?? '',
       phone: json['phone'] as String? ?? '',
-      age: json['age'] as int?,
+      dob: json['dob'] != null ? DateTime.parse(json['dob'] as String) : null,
       role: (json['role'] as String?) == 'owner' ? UserRole.owner : UserRole.driver,
       licenseUrl: json['license_url'] as String?,
       landProofUrl: json['land_proof_url'] as String?,
-      dimensions: json['dimensions'] as String?,
-      address: json['address'] as String?,
+      carModelId: json['car_model_id'] as String?,
       isVerified: json['is_verified'] as bool?,
     );
   }
@@ -49,12 +57,11 @@ class AppUserModel {
       'name': name,
       'email': email,
       'phone': phone,
-      'age': age,
+      'dob': dob?.toIso8601String().split('T')[0], // Store as date string (YYYY-MM-DD)
       'role': role == UserRole.owner ? 'owner' : 'driver',
       'license_url': licenseUrl,
       'land_proof_url': landProofUrl,
-      'dimensions': dimensions,
-      'address': address,
+      'car_model_id': carModelId,
       'is_verified': isVerified,
     };
   }

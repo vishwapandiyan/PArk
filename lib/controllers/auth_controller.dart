@@ -50,7 +50,7 @@ class AuthController extends Cubit<AuthState> {
         password: password,
       );
       
-      print('SignIn successful, session: ${response.session?.user?.id}');
+      print('SignIn successful, session: ${response.session?.user.id}');
       
       // Load the profile after successful signin
       print('Loading profile after signin...');
@@ -72,12 +72,11 @@ class AuthController extends Cubit<AuthState> {
     required String password,
     required String name,
     required String phone,
-    int? age,
+    DateTime? dob,
     required UserRole role,
     String? licenseUrl,
     String? landProofUrl,
-    String? dimensions,
-    String? address,
+    String? carModelId,
   }) async {
     emit(state.copyWith(isLoading: true, errorMessage: null));
     try {
@@ -87,7 +86,7 @@ class AuthController extends Cubit<AuthState> {
         data: {
           'name': name,
           'phone': phone,
-          'age': age,
+          'dob': dob?.toIso8601String().split('T')[0],
           'role': role == UserRole.owner ? 'owner' : 'driver',
         },
       );
@@ -98,12 +97,11 @@ class AuthController extends Cubit<AuthState> {
         'name': name,
         'email': email,
         'phone': phone,
-        'age': age,
+        'dob': dob?.toIso8601String().split('T')[0],
         'role': role == UserRole.owner ? 'owner' : 'driver',
         'license_url': licenseUrl,
         'land_proof_url': landProofUrl,
-        'dimensions': dimensions,
-        'address': address,
+        'car_model_id': carModelId,
         'is_verified': role == UserRole.driver ? false : null,
       });
 
@@ -129,6 +127,7 @@ class AuthController extends Cubit<AuthState> {
     final name = user.userMetadata?['name'] ?? user.userMetadata?['full_name'] ?? 'Unknown User';
     final phone = user.userMetadata?['phone'] ?? '+1234567890';
     final role = user.userMetadata?['role'] ?? 'driver'; // Default to driver
+    final dobString = user.userMetadata?['dob'] as String?;
     
     print('Creating basic profile for user: $email with role: $role');
     
@@ -137,6 +136,7 @@ class AuthController extends Cubit<AuthState> {
       'name': name,
       'email': email,
       'phone': phone,
+      'dob': dobString,
       'role': role,
       'is_verified': role == 'driver' ? false : null,
     });
@@ -182,13 +182,13 @@ class AuthController extends Cubit<AuthState> {
               .select()
               .eq('id', user.id)
               .single();
-          final profile = AppUserModel.fromJson(retryResponse as Map<String, dynamic>);
+          final profile = AppUserModel.fromJson(retryResponse);
           print('Profile created and loaded successfully: ${profile.role}');
           emit(state.copyWith(profile: profile, errorMessage: null));
           return;
         }
         
-        final profile = AppUserModel.fromJson(response as Map<String, dynamic>);
+        final profile = AppUserModel.fromJson(response);
         print('Profile loaded successfully: ${profile.role}');
         
         emit(state.copyWith(profile: profile, errorMessage: null));
