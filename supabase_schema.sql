@@ -341,6 +341,50 @@ create table if not exists public.wallets (
 -- Update existing parking_slots table to work with new system
 alter table if exists public.parking_slots add column if not exists space_id uuid references public.parking_spaces(id);
 
+-- parking_time_slots table for auto-generated time slots
+create table if not exists public.parking_time_slots (
+  id uuid primary key default gen_random_uuid(),
+  parking_space_id uuid not null references public.parking_spaces(id) on delete cascade,
+  slot_start_time time not null,
+  slot_end_time time not null,
+  status text check (status in ('active','paused','booked')) not null default 'active',
+  rental_mode text check (rental_mode in ('hourly','monthly','yearly')) not null,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+-- Enable RLS for parking_time_slots
+alter table public.parking_time_slots enable row level security;
+
+-- Time slots RLS: owners can manage their slots, everyone can read active slots
+create policy "Time slots read all" on public.parking_time_slots for select using (true);
+create policy "Time slots insert owner" on public.parking_time_slots
+  for insert to authenticated with check (
+    exists (
+      select 1 from public.parking_spaces ps 
+      where ps.id = parking_space_id and ps.owner_id = auth.uid()
+    )
+  );
+create policy "Time slots update owner" on public.parking_time_slots
+  for update to authenticated using (
+    exists (
+      select 1 from public.parking_spaces ps 
+      where ps.id = parking_space_id and ps.owner_id = auth.uid()
+    )
+  ) with check (
+    exists (
+      select 1 from public.parking_spaces ps 
+      where ps.id = parking_space_id and ps.owner_id = auth.uid()
+    )
+  );
+create policy "Time slots delete owner" on public.parking_time_slots
+  for delete to authenticated using (
+    exists (
+      select 1 from public.parking_spaces ps 
+      where ps.id = parking_space_id and ps.owner_id = auth.uid()
+    )
+  );
+
 -- SQL Functions for wallet operations
 CREATE OR REPLACE FUNCTION add_wallet_balance(user_id_param UUID, amount_param INTEGER)
 RETURNS VOID AS $$

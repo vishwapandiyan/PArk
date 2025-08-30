@@ -4,6 +4,7 @@ import '../../controllers/auth_controller.dart';
 import '../../models/parking_space_model.dart';
 import '../../services/parking_space_service.dart';
 import '../../widgets/loading_indicator.dart';
+import '../../models/wallet_model.dart';
 
 class ManageSpaceScreen extends StatefulWidget {
   const ManageSpaceScreen({super.key});
@@ -12,7 +13,7 @@ class ManageSpaceScreen extends StatefulWidget {
   State<ManageSpaceScreen> createState() => _ManageSpaceScreenState();
 }
 
-class _ManageSpaceScreenState extends State<ManageSpaceScreen> {
+class _ManageSpaceScreenState extends State<ManageSpaceScreen> with WidgetsBindingObserver {
   List<ParkingSpace> _parkingSpaces = [];
   bool _isLoading = true;
   String? _error;
@@ -20,7 +21,23 @@ class _ManageSpaceScreenState extends State<ManageSpaceScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadParkingSpaces();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // Refresh when app comes back to foreground
+    if (state == AppLifecycleState.resumed) {
+      _loadParkingSpaces();
+    }
   }
 
   Future<void> _loadParkingSpaces() async {
@@ -99,23 +116,28 @@ class _ManageSpaceScreenState extends State<ManageSpaceScreen> {
     }
   }
 
-  void _viewSpaceDetails(ParkingSpace space) {
-    Navigator.of(context).push(
+  void _viewSpaceDetails(ParkingSpace space) async {
+    final result = await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => SpaceDetailsScreen(space: space),
       ),
-    ).then((_) {
-      // Refresh list when returning from details screen
-      _loadParkingSpaces();
-    });
+    );
+    
+    // Refresh list when returning from details screen  
+    // (space details might have been updated)
+    if (result == true || result == null) {
+      await _loadParkingSpaces();
+    }
   }
 
-  void _addNewSpace() {
+  void _addNewSpace() async {
     // Navigate to add space form
-    Navigator.of(context).pushNamed('/add_space').then((_) {
-      // Refresh list when returning from add space screen
-      _loadParkingSpaces();
-    });
+    final result = await Navigator.of(context).pushNamed('/add_space');
+    
+    // Refresh list if a space was successfully added
+    if (result == true) {
+      await _loadParkingSpaces();
+    }
   }
 
   @override
@@ -880,7 +902,8 @@ class SpaceDetailsScreen extends StatelessWidget {
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.of(context).pop(); // Return to manage spaces screen
+        // Return true to indicate successful update
+        Navigator.of(context).pop(true);
       }
     } catch (e) {
       if (context.mounted) {

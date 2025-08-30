@@ -50,7 +50,7 @@ class MyApp extends StatelessWidget {
           // Driver
           '/driver_dashboard': (_) => const DriverDashboard(),
           '/booking': (_) => const BookingScreen(),
-          '/slots': (_) => const SlotListScreen(),
+          '/slot_list': (_) => const SlotListScreen(),
           '/slot_detail': (_) => const SlotDetailScreen(),
           '/navigation': (_) => const NavigationScreen(),
           '/ar_view': (_) => const ARViewScreen(),

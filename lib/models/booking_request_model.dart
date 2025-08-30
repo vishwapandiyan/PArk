@@ -1,7 +1,11 @@
 class BookingRequestModel {
   final String destination;
-  final String departure;
-  final String carDimensions;
+  final double? destinationLat;
+  final double? destinationLng;
+  final double? distance;
+  final String carDimensions; // Auto-filled from car model
+  final String carModelId;
+  final String carModelName;
   final List<Map<String, dynamic>> availableSlots;
   final bool needShelter;
   final bool needCCTV;
@@ -9,8 +13,12 @@ class BookingRequestModel {
 
   const BookingRequestModel({
     required this.destination,
-    required this.departure,
+    this.destinationLat,
+    this.destinationLng,
+    this.distance,
     required this.carDimensions,
+    required this.carModelId,
+    required this.carModelName,
     required this.availableSlots,
     required this.needShelter,
     required this.needCCTV,
@@ -20,8 +28,12 @@ class BookingRequestModel {
   Map<String, dynamic> toJson() {
     return {
       'destination': destination,
-      'departure': departure,
+      'destination_lat': destinationLat,
+      'destination_lng': destinationLng,
+      'distance': distance,
       'car_dimensions': carDimensions,
+      'car_model_id': carModelId,
+      'car_model_name': carModelName,
       'available_slots': availableSlots,
       'need_shelter': needShelter,
       'need_cctv': needCCTV,

@@ -3,6 +3,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../controllers/auth_controller.dart';
 import '../../services/parking_space_service.dart';
+import '../../services/parking_time_slot_service.dart';
+import '../../models/parking_time_slot_model.dart';
+import '../../widgets/google_maps_location_picker.dart';
+import '../../widgets/time_slots_display.dart';
+
 
 class AddSpaceScreen extends StatefulWidget {
   const AddSpaceScreen({super.key});
@@ -31,12 +36,14 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
   bool _hasCctv = false;
   double? _latitude;
   double? _longitude;
+  String _selectedAddress = '';
   DateTimeRange? _rentalDuration;
   TimeOfDay? _availableFrom;
   TimeOfDay? _availableTo;
   String _rentalMode = 'hourly';
   int? _selectedPrice;
   bool _isSubmitting = false;
+  List<ParkingTimeSlot> _generatedSlots = [];
 
   @override
   void dispose() {
@@ -48,6 +55,25 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
     _heightCtrl.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  /// Generate time slots based on current form settings
+  void _generateTimeSlots() {
+    if (_availableFrom == null || _availableTo == null) {
+      setState(() {
+        _generatedSlots = [];
+      });
+      return;
+    }
+
+    setState(() {
+      _generatedSlots = ParkingTimeSlotService.generateTimeSlots(
+        parkingSpaceId: '', // Will be filled when saving
+        availableFrom: _availableFrom!,
+        availableTo: _availableTo!,
+        rentalMode: _rentalMode,
+      );
+    });
   }
 
   @override
@@ -281,6 +307,21 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
                   ],
                 ),
 
+                const SizedBox(height: 24),
+
+                // Section 7: Generated Time Slots
+                if (_availableFrom != null && _availableTo != null)
+                  _buildSection(
+                    'Generated Time Slots',
+                    Icons.access_time,
+                    [
+                      TimeSlotsDisplay(
+                        slots: _generatedSlots,
+                        isPreview: true,
+                      ),
+                    ],
+                  ),
+
                 const SizedBox(height: 32),
 
                 // Submit button
@@ -447,17 +488,37 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.green.withOpacity(0.3)),
                 ),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.check_circle, color: Colors.green, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Selected: ${_latitude!.toStringAsFixed(6)}, ${_longitude!.toStringAsFixed(6)}',
+                    Row(
+                      children: [
+                        const Icon(Icons.check_circle, color: Colors.green, size: 20),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Location Selected',
+                          style: TextStyle(
+                            color: Colors.green,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    if (_selectedAddress.isNotEmpty)
+                      Text(
+                        _selectedAddress,
                         style: const TextStyle(
                           color: Colors.green,
                           fontWeight: FontWeight.w500,
                         ),
+                      ),
+                    Text(
+                      'Coordinates: ${_latitude!.toStringAsFixed(6)}, ${_longitude!.toStringAsFixed(6)}',
+                      style: TextStyle(
+                        color: Colors.green[700],
+                        fontSize: 12,
+                        fontFamily: 'monospace',
                       ),
                     ),
                   ],
@@ -732,6 +793,9 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
               _rentalMode = value!;
               _selectedPrice = null; // Reset price when mode changes
             });
+            
+            // Generate slots whenever rental mode changes
+            _generateTimeSlots();
           },
         ),
       ],
@@ -837,21 +901,33 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
   }
 
   Future<void> _pickLocation() async {
-    // For now, use a simple dialog to input coordinates
-    // This will be replaced with Google Maps integration
-    final result = await showDialog<Map<String, double>>(
-      context: context,
-      builder: (context) => _LocationPickerDialog(
-        initialLat: _latitude,
-        initialLng: _longitude,
-      ),
-    );
-
-    if (result != null) {
-      setState(() {
-        _latitude = result['lat'];
-        _longitude = result['lng'];
-      });
+    try {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => GoogleMapsLocationPicker(
+            initialLatitude: _latitude,
+            initialLongitude: _longitude,
+            onLocationSelected: (lat, lng, address) {
+              setState(() {
+                _latitude = lat;
+                _longitude = lng;
+                _selectedAddress = address;
+                // Auto-fill address field if it's empty
+                if (_addressCtrl.text.trim().isEmpty) {
+                  _addressCtrl.text = address;
+                }
+              });
+            },
+          ),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to open location picker: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -884,6 +960,9 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
           _availableTo = picked;
         }
       });
+      
+      // Generate slots whenever time changes
+      _generateTimeSlots();
     }
   }
 
@@ -963,16 +1042,30 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
         'current_bookings': 0,
       };
 
-      await ParkingSpaceService.createParkingSpace(spaceData);
+      final createdSpace = await ParkingSpaceService.createParkingSpace(spaceData);
+
+      // Save generated time slots if we have any
+      if (_generatedSlots.isNotEmpty) {
+        final slotsToSave = _generatedSlots.map((slot) => 
+          slot.copyWith(parkingSpaceId: createdSpace.id)
+        ).toList();
+        
+        await ParkingTimeSlotService.saveTimeSlots(slotsToSave);
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Parking space created successfully!'),
+          SnackBar(
+            content: Text(
+              _generatedSlots.isNotEmpty 
+                ? 'Parking space and ${_generatedSlots.length} time slots created successfully!'
+                : 'Parking space created successfully!'
+            ),
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.of(context).pop(); // Return to manage spaces screen
+        // Return true to indicate successful creation
+        Navigator.of(context).pop(true);
       }
     } catch (e) {
       if (mounted) {
@@ -995,125 +1088,4 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
   }
 }
 
-class _LocationPickerDialog extends StatefulWidget {
-  final double? initialLat;
-  final double? initialLng;
 
-  const _LocationPickerDialog({this.initialLat, this.initialLng});
-
-  @override
-  State<_LocationPickerDialog> createState() => _LocationPickerDialogState();
-}
-
-class _LocationPickerDialogState extends State<_LocationPickerDialog> {
-  final _latCtrl = TextEditingController();
-  final _lngCtrl = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.initialLat != null) {
-      _latCtrl.text = widget.initialLat!.toStringAsFixed(6);
-    }
-    if (widget.initialLng != null) {
-      _lngCtrl.text = widget.initialLng!.toStringAsFixed(6);
-    }
-  }
-
-  @override
-  void dispose() {
-    _latCtrl.dispose();
-    _lngCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: const Text('Set Location'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text(
-            'Enter coordinates or use the map integration coming soon!',
-            style: TextStyle(color: Colors.grey),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _latCtrl,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'Latitude',
-              hintText: '12.9716',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _lngCtrl,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'Longitude',
-              hintText: '77.5946',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.blue.withOpacity(0.3)),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Tip: You can use Google Maps to find coordinates for your location.',
-                    style: TextStyle(
-                      color: Colors.blue[700],
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: () {
-            final lat = double.tryParse(_latCtrl.text);
-            final lng = double.tryParse(_lngCtrl.text);
-            
-            if (lat == null || lng == null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Please enter valid coordinates'),
-                  backgroundColor: Colors.red,
-                ),
-              );
-              return;
-            }
-
-            Navigator.of(context).pop({'lat': lat, 'lng': lng});
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Theme.of(context).primaryColor,
-            foregroundColor: Colors.white,
-          ),
-          child: const Text('Set Location'),
-        ),
-      ],
-    );
-  }
-}

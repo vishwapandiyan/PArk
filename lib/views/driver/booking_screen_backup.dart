@@ -4,10 +4,8 @@ import '../../controllers/auth_controller.dart';
 import '../../controllers/slot_controller.dart';
 
 import '../../models/car_model.dart';
-import '../../models/ml_request_model.dart';
 
 import '../../services/car_service.dart';
-import '../../services/enhanced_ml_service.dart';
 
 import '../../widgets/destination_maps_picker.dart';
 
@@ -37,10 +35,6 @@ class _BookingScreenState extends State<BookingScreen> {
   bool _needCCTV = false;
   bool _needEVCharging = false;
   bool _isLoading = false;
-  
-  // Max price
-  final _maxPriceCtrl = TextEditingController(text: '150');
-  int _maxPrice = 150;
 
   @override
   void initState() {
@@ -51,7 +45,6 @@ class _BookingScreenState extends State<BookingScreen> {
 
   @override
   void dispose() {
-    _maxPriceCtrl.dispose();
     super.dispose();
   }
 
@@ -60,15 +53,14 @@ class _BookingScreenState extends State<BookingScreen> {
       final authState = context.read<AuthController>().state;
       if (authState.profile?.carModelId != null) {
         final carModel = await CarService.getCarModelById(authState.profile!.carModelId!);
-        if (mounted) {
-          setState(() {
-            _userDefaultCarModel = carModel;
-            _selectedCarModel = carModel; // Set as default selection
-          });
-        }
+        setState(() {
+          _userDefaultCarModel = carModel;
+          _selectedCarModel = carModel; // Set as default selection
+        });
+        print('🚗 Loaded user default car model: ${carModel?.displayName}');
       }
     } catch (e) {
-      print('Error loading user car model: $e');
+      print('❌ Error loading user car model: $e');
     }
   }
 
@@ -76,51 +68,25 @@ class _BookingScreenState extends State<BookingScreen> {
     setState(() => _isLoadingCarModels = true);
     try {
       final carModels = await CarService.getAllCarModels();
-      if (mounted) {
-        setState(() {
-          _availableCarModels = carModels;
-          _isLoadingCarModels = false;
-        });
-      }
+      setState(() {
+        _availableCarModels = carModels;
+        _isLoadingCarModels = false;
+      });
+      print('🚗 Loaded ${carModels.length} available car models');
     } catch (e) {
-      if (mounted) {
-        setState(() => _isLoadingCarModels = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to load car models: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      setState(() => _isLoadingCarModels = false);
+      print('❌ Error loading car models: $e');
     }
   }
 
-  Future<void> _pickDestination() async {
-    await Navigator.of(context).push<Map<String, dynamic>>(
-      MaterialPageRoute(
-        builder: (context) => DestinationMapsPicker(
-          onDestinationSelected: (lat, lng, address) {
-            setState(() {
-              _destinationLat = lat;
-              _destinationLng = lng;
-              _destinationAddress = address;
-            });
-            // Navigator.pop() is already called by DestinationMapsPicker
-          },
-        ),
-      ),
-    );
-  }
+  Future<void> _findParkingSpaces() async {
+    if (!_formKey.currentState!.validate()) return;
 
-  void _findParkingSpaces() {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
-    if (_destinationLat == null || _destinationLng == null) {
+    // Validation
+    if (_destinationAddress.isEmpty || _destinationLat == null || _destinationLng == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please select a destination first'),
+          content: Text('Please select a destination on the map'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -140,57 +106,75 @@ class _BookingScreenState extends State<BookingScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Get all slots (you would normally filter by location/distance here)
-      final slotController = context.read<SlotController>();
-      final allSlots = slotController.state.slots;
+      // Get available slots from controller
+      final slots = context.read<SlotController>().state.slots;
+      if (slots.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No parking slots available')),
+        );
+        return;
+      }
 
-      // Manual filtering based on preferences
-      final filteredSlots = allSlots.where((slot) {
-        bool matches = true;
+      // Filter slots based on user preferences
+      final filteredSlots = slots.where((slot) {
+        bool meetsPreferences = true;
         
-        // Filter by shelter preference
         if (_needShelter && (slot.hasShelter != true)) {
-          matches = false;
+          meetsPreferences = false;
         }
-        
-        // Filter by CCTV preference
         if (_needCCTV && (slot.hasCCTV != true)) {
-          matches = false;
+          meetsPreferences = false;
         }
-        
-        // Filter by EV Charging preference
         if (_needEVCharging && (slot.hasEVCharging != true)) {
-          matches = false;
+          meetsPreferences = false;
         }
         
-        return matches;
+        return meetsPreferences;
       }).toList();
 
-      // Navigate to slot list with filtered results
+      if (!mounted) return;
+
+      if (filteredSlots.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No parking spaces match your preferences. Try adjusting your requirements.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      // Navigate to slot list screen with filtered results
       Navigator.of(context).pushNamed(
         '/slot_list',
         arguments: {
           'slots': filteredSlots,
           'destination': _destinationAddress,
+          'destinationLat': _destinationLat,
+          'destinationLng': _destinationLng,
           'carModel': _selectedCarModel!.displayName,
           'preferences': {
             'shelter': _needShelter,
             'cctv': _needCCTV,
             'evCharging': _needEVCharging,
-          },
+          }
         },
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error finding parking spaces: $e'),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text('Error: ${e.toString()}')),
       );
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -212,22 +196,37 @@ class _BookingScreenState extends State<BookingScreen> {
             ],
           ),
         ),
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Form(
+            key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // Header Card
                 _buildHeaderCard(),
-                const SizedBox(height: 20),
+                
+                const SizedBox(height: 24),
+
+                // Destination Card
                 _buildDestinationCard(),
-                const SizedBox(height: 20),
+                
+                const SizedBox(height: 24),
+
+                // Car Model Card
                 _buildCarModelCard(),
-                const SizedBox(height: 20),
+
+                const SizedBox(height: 24),
+
+                // Parking Preferences Card
                 _buildPreferencesCard(),
-                const SizedBox(height: 30),
+
+                const SizedBox(height: 32),
+
+                // Find Parking Button
                 _buildFindParkingButton(),
+
+                const SizedBox(height: 24),
               ],
             ),
           ),
@@ -238,33 +237,23 @@ class _BookingScreenState extends State<BookingScreen> {
 
   Widget _buildHeaderCard() {
     return Card(
-      elevation: 3,
+      elevation: 2,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: BorderRadius.circular(12),
       ),
-      child: Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(15),
-          gradient: LinearGradient(
-            colors: [
-              Theme.of(context).primaryColor.withOpacity(0.8),
-              Theme.of(context).primaryColor,
-            ],
-          ),
-        ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
         child: Column(
           children: [
             Icon(
               Icons.local_parking,
               size: 48,
-              color: Colors.white,
+              color: Theme.of(context).primaryColor,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             Text(
-              'Find Your Perfect Parking Spot',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: Colors.white,
+              'Find Available Parking Spaces',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
               textAlign: TextAlign.center,
@@ -273,7 +262,7 @@ class _BookingScreenState extends State<BookingScreen> {
             Text(
               'Search for parking spaces that match your preferences',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.white.withOpacity(0.9),
+                color: Colors.grey[600],
               ),
               textAlign: TextAlign.center,
             ),
@@ -324,27 +313,33 @@ class _BookingScreenState extends State<BookingScreen> {
                   children: [
                     Row(
                       children: [
-                        Icon(
-                          Icons.check_circle,
-                          color: Colors.green[700],
-                          size: 20,
-                        ),
+                        const Icon(Icons.check_circle, color: Colors.green, size: 20),
                         const SizedBox(width: 8),
-                        Text(
-                          'Selected Destination',
+                        const Text(
+                          'Destination Selected',
                           style: TextStyle(
-                            color: Colors.green[700],
+                            color: Colors.green,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
+
                       ],
                     ),
                     const SizedBox(height: 8),
                     Text(
                       _destinationAddress,
+                      style: const TextStyle(
+                        color: Colors.green,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Coordinates: ${_destinationLat?.toStringAsFixed(4)}, ${_destinationLng?.toStringAsFixed(4)}',
                       style: TextStyle(
                         color: Colors.green[700],
-                        fontWeight: FontWeight.w500,
+                        fontSize: 11,
+                        fontFamily: 'monospace',
                       ),
                     ),
                   ],
@@ -365,7 +360,7 @@ class _BookingScreenState extends State<BookingScreen> {
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Please select your destination',
+                        'Please select your destination using the map',
                         style: TextStyle(color: Colors.orange),
                       ),
                     ),
@@ -374,22 +369,19 @@ class _BookingScreenState extends State<BookingScreen> {
               ),
             
             const SizedBox(height: 16),
-            
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton.icon(
+              child: OutlinedButton.icon(
                 onPressed: _pickDestination,
                 icon: const Icon(Icons.map),
-                label: Text(_destinationAddress.isEmpty 
-                    ? 'Pick Destination on Map' 
-                    : 'Change Destination'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).primaryColor,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                label: Text(_destinationAddress.isNotEmpty ? 'Change Destination' : 'Pick Destination on Map'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Theme.of(context).primaryColor,
+                  side: BorderSide(color: Theme.of(context).primaryColor),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
             ),
@@ -406,7 +398,7 @@ class _BookingScreenState extends State<BookingScreen> {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16), // Reduced from 20
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -415,23 +407,21 @@ class _BookingScreenState extends State<BookingScreen> {
                 Icon(
                   Icons.directions_car,
                   color: Theme.of(context).primaryColor,
-                  size: 18, // Reduced icon size
                 ),
                 const SizedBox(width: 8),
                 Text(
                   '🚗 Vehicle Information',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith( // Changed from titleLarge
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
-                    fontSize: 15, // Explicit smaller size
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12), // Reduced from 16
+            const SizedBox(height: 16),
             
             if (_selectedCarModel != null) ...[
               Container(
-                padding: const EdgeInsets.all(12), // Reduced from 16
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.blue.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
@@ -445,24 +435,23 @@ class _BookingScreenState extends State<BookingScreen> {
                         Icon(
                           Icons.check_circle,
                           color: Colors.blue[700],
-                          size: 16, // Reduced icon size
+                          size: 20,
                         ),
-                        const SizedBox(width: 6), // Reduced spacing
+                        const SizedBox(width: 8),
                         Text(
                           'Selected Car Model',
                           style: TextStyle(
                             color: Colors.blue[700],
                             fontWeight: FontWeight.bold,
-                            fontSize: 12, // Reduced font size
                           ),
                         ),
                         if (_selectedCarModel == _userDefaultCarModel) ...[
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
                               color: Colors.green.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(10),
                               border: Border.all(color: Colors.green),
                             ),
                             child: const Text(
@@ -470,76 +459,68 @@ class _BookingScreenState extends State<BookingScreen> {
                               style: TextStyle(
                                 color: Colors.green,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 8, // Reduced badge size
+                                fontSize: 10,
                               ),
                             ),
                           ),
                         ],
                       ],
                     ),
-                    const SizedBox(height: 6), // Reduced spacing
+                    const SizedBox(height: 8),
                     Text(
                       _selectedCarModel!.displayName,
                       style: TextStyle(
                         color: Colors.blue[700],
                         fontWeight: FontWeight.bold,
-                        fontSize: 13, // Reduced font size
+                        fontSize: 16,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 4),
                     Text(
                       'Dimensions: ${_selectedCarModel!.dimensions}',
                       style: TextStyle(
                         color: Colors.blue[600],
-                        fontSize: 10, // Reduced font size
+                        fontSize: 12,
                         fontFamily: 'monospace',
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 10), // Reduced spacing
+              const SizedBox(height: 12),
             ] else
               Container(
-                padding: const EdgeInsets.all(12), // Reduced padding
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.orange.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.orange.withOpacity(0.3)),
                 ),
-                child: Row(
+                child: const Row(
                   children: [
-                    const Icon(Icons.warning, color: Colors.orange, size: 16), // Reduced icon
-                    const SizedBox(width: 6),
+                    Icon(Icons.warning, color: Colors.orange, size: 20),
+                    SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Please select your car model',
-                        style: TextStyle(
-                          color: Colors.orange,
-                          fontSize: 12, // Reduced font size
-                        ),
+                        style: TextStyle(color: Colors.orange),
                       ),
                     ),
                   ],
                 ),
               ),
             
-            const SizedBox(height: 12), // Reduced spacing
+            const SizedBox(height: 16),
             
             if (_isLoadingCarModels)
               const Center(
-                child: SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
+                child: CircularProgressIndicator(),
               )
             else
               DropdownButtonFormField<CarModel>(
                 value: _selectedCarModel,
                 decoration: InputDecoration(
                   labelText: 'Car Model',
-                  labelStyle: const TextStyle(fontSize: 12), // Smaller label
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -547,47 +528,34 @@ class _BookingScreenState extends State<BookingScreen> {
                     borderRadius: BorderRadius.circular(8),
                     borderSide: BorderSide(color: Theme.of(context).primaryColor),
                   ),
-                  prefixIcon: const Icon(Icons.directions_car, size: 16), // Smaller icon
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8), // Compact padding
-                  isDense: true, // Make field more compact
+                  prefixIcon: const Icon(Icons.directions_car),
                 ),
-                hint: const Text(
-                  'Select your car model',
-                  style: TextStyle(fontSize: 12), // Smaller hint
-                ),
+                hint: const Text('Select your car model'),
                 isDense: true,
                 isExpanded: true,
-                menuMaxHeight: 180, // Reduced height to prevent overflow
-                style: const TextStyle(fontSize: 12, color: Colors.black87), // Smaller text
-                itemHeight: null, // Allow variable item heights
+                menuMaxHeight: 300,
                 items: _availableCarModels.map((carModel) {
                   return DropdownMenuItem<CarModel>(
                     value: carModel,
-                    child: Container(
-                      constraints: const BoxConstraints(maxHeight: 28), // Limit item height
-                      padding: const EdgeInsets.symmetric(vertical: 1),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
                             carModel.displayName,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w500,
-                              fontSize: 11, // Smaller font
-                            ),
+                            style: const TextStyle(fontWeight: FontWeight.w500),
                             overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
                           ),
                           Text(
                             carModel.dimensions,
                             style: TextStyle(
-                              fontSize: 8, // Much smaller font for dimensions
+                              fontSize: 11,
                               color: Colors.grey[600],
                               fontFamily: 'monospace',
                             ),
                             overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
                           ),
                         ],
                       ),
@@ -631,7 +599,7 @@ class _BookingScreenState extends State<BookingScreen> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  '⚙️ Preferences',
+                  '⚙️ Parking Preferences',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -640,34 +608,28 @@ class _BookingScreenState extends State<BookingScreen> {
             ),
             const SizedBox(height: 16),
             
-            Text(
-              'Select your preferred amenities:',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.grey[600],
-              ),
+            _buildPreferenceSwitch(
+              'Shelter Required',
+              'Covered parking space',
+              Icons.roofing,
+              _needShelter,
+              (value) => setState(() => _needShelter = value),
             ),
             const SizedBox(height: 12),
-            
-            _buildPreferenceCheckbox(
-              title: 'Shelter',
-              subtitle: 'Covered parking space',
-              icon: Icons.roofing,
-              value: _needShelter,
-              onChanged: (value) => setState(() => _needShelter = value ?? false),
+            _buildPreferenceSwitch(
+              'CCTV Security',
+              '24/7 video surveillance',
+              Icons.security,
+              _needCCTV,
+              (value) => setState(() => _needCCTV = value),
             ),
-            _buildPreferenceCheckbox(
-              title: 'CCTV Surveillance',
-              subtitle: '24/7 security monitoring',
-              icon: Icons.security,
-              value: _needCCTV,
-              onChanged: (value) => setState(() => _needCCTV = value ?? false),
-            ),
-            _buildPreferenceCheckbox(
-              title: 'EV Charging',
-              subtitle: 'Electric vehicle charging station',
-              icon: Icons.electric_car,
-              value: _needEVCharging,
-              onChanged: (value) => setState(() => _needEVCharging = value ?? false),
+            const SizedBox(height: 12),
+            _buildPreferenceSwitch(
+              'EV Charging',
+              'Electric vehicle charging station',
+              Icons.electric_car,
+              _needEVCharging,
+              (value) => setState(() => _needEVCharging = value),
             ),
           ],
         ),
@@ -675,45 +637,44 @@ class _BookingScreenState extends State<BookingScreen> {
     );
   }
 
-  Widget _buildPreferenceCheckbox({
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required bool value,
-    required ValueChanged<bool?> onChanged,
-  }) {
+  Widget _buildPreferenceSwitch(
+    String title,
+    String subtitle,
+    IconData icon,
+    bool value,
+    Function(bool) onChanged,
+  ) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
+        color: value ? Theme.of(context).primaryColor.withOpacity(0.1) : Colors.grey[50],
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: value ? Theme.of(context).primaryColor : Colors.grey.shade300,
+          color: value ? Theme.of(context).primaryColor.withOpacity(0.3) : Colors.grey[300]!,
         ),
-        color: value ? Theme.of(context).primaryColor.withOpacity(0.05) : null,
       ),
-      child: CheckboxListTile(
-        title: Text(
-          title,
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            color: value ? Theme.of(context).primaryColor : null,
-          ),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[600],
-          ),
-        ),
-        secondary: Icon(
-          icon,
-          color: value ? Theme.of(context).primaryColor : Colors.grey,
-        ),
+      child: SwitchListTile(
         value: value,
         onChanged: onChanged,
+        title: Row(
+          children: [
+            Icon(
+              icon,
+              color: value ? Theme.of(context).primaryColor : Colors.grey[600],
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: value ? Theme.of(context).primaryColor : null,
+              ),
+            ),
+          ],
+        ),
+        subtitle: Text(subtitle),
         activeColor: Theme.of(context).primaryColor,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
   }
@@ -730,7 +691,6 @@ class _BookingScreenState extends State<BookingScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          elevation: 3,
         ),
         child: _isLoading
             ? const Row(
@@ -745,18 +705,18 @@ class _BookingScreenState extends State<BookingScreen> {
                     ),
                   ),
                   SizedBox(width: 12),
-                  Text('Searching...'),
+                  Text('Searching Parking Spaces...'),
                 ],
               )
-            : Row(
+            : const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.search),
-                  const SizedBox(width: 8),
+                  Icon(Icons.search),
+                  SizedBox(width: 8),
                   Text(
                     'Find Parking Spaces',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Colors.white,
+                    style: TextStyle(
+                      fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -765,9 +725,33 @@ class _BookingScreenState extends State<BookingScreen> {
       ),
     );
   }
+
+  Future<void> _pickDestination() async {
+    try {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => DestinationMapsPicker(
+            initialDestinationLat: _destinationLat,
+            initialDestinationLng: _destinationLng,
+            onDestinationSelected: (lat, lng, address) {
+              setState(() {
+                _destinationLat = lat;
+                _destinationLng = lng;
+                _destinationAddress = address;
+              });
+            },
+          ),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to open destination picker: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
 }
-
-
-
 
 
