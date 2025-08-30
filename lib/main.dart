@@ -8,7 +8,6 @@ import 'controllers/slot_controller.dart';
 import 'models/user_model.dart';
 import 'views/auth/login_screen.dart';
 import 'views/auth/register_screen.dart';
-import 'views/auth/splash_screen.dart';
 import 'views/driver/booking_screen.dart';
 import 'views/driver/slot_list_screen.dart';
 import 'views/driver/slot_detail_screen.dart';
@@ -17,6 +16,7 @@ import 'views/driver/ar_view_screen.dart';
 import 'views/driver/driver_dashboard.dart';
 import 'views/owner/owner_dashboard.dart';
 import 'views/owner/manage_space_screen.dart';
+import 'views/owner/add_space_screen.dart';
 import 'views/owner/analytics_screen.dart';
 
 Future<void> main() async {
@@ -57,6 +57,7 @@ class MyApp extends StatelessWidget {
           // Owner
           '/owner_dashboard': (_) => const OwnerDashboard(),
           '/manage_space': (_) => const ManageSpaceScreen(),
+          '/add_space': (_) => const AddSpaceScreen(),
           '/analytics': (_) => const AnalyticsScreen(),
         },
       ),

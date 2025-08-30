@@ -1,10 +1,101 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../controllers/auth_controller.dart';
-import '../../widgets/loading_indicator.dart';
+import '../../widgets/wallet_card.dart';
+import '../../models/wallet_model.dart';
+import '../../services/wallet_service.dart';
 
-class DriverDashboard extends StatelessWidget {
+class DriverDashboard extends StatefulWidget {
   const DriverDashboard({super.key});
+
+  @override
+  State<DriverDashboard> createState() => _DriverDashboardState();
+}
+
+class _DriverDashboardState extends State<DriverDashboard> {
+  Wallet? _wallet;
+  List<Transaction> _recentTransactions = [];
+  bool _isLoadingWallet = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadWalletData();
+  }
+
+  Future<void> _loadWalletData() async {
+    try {
+      final authState = context.read<AuthController>().state;
+      if (authState.profile?.id != null) {
+        final wallet = await WalletService.getUserWallet(authState.profile!.id);
+        final transactions = await WalletService.getRecentTransactions(authState.profile!.id);
+        
+        setState(() {
+          _wallet = wallet;
+          _recentTransactions = transactions;
+          _isLoadingWallet = false;
+        });
+      }
+    } catch (e) {
+      setState(() => _isLoadingWallet = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load wallet: $e'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _addMoney() async {
+    // Show dialog to add test money
+    final amount = await showDialog<int>(
+      context: context,
+      builder: (context) => _AddMoneyDialog(),
+    );
+    
+    if (amount != null && amount > 0) {
+      try {
+        final authState = context.read<AuthController>().state;
+        await WalletService.addMoney(
+          authState.profile!.id,
+          amount,
+          'Test money added',
+        );
+        await _loadWalletData(); // Refresh wallet data
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('₹$amount added to wallet successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to add money: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  void _viewTransactionHistory() {
+    // TODO: Navigate to transaction history screen
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Transaction history coming soon!'),
+        backgroundColor: Colors.blue,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,48 +134,13 @@ class DriverDashboard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Welcome Header
-              Card(
-                elevation: 4,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    children: [
-                      Container(
-                        width: 80,
-                        height: 80,
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).primaryColor,
-                          borderRadius: BorderRadius.circular(40),
-                        ),
-                        child: const Icon(
-                          Icons.person,
-                          size: 40,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Welcome Back!',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).primaryColor,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Ready to find your perfect parking spot?',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.grey[600],
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
-                ),
+              // Wallet Card (replaces Welcome Header)
+              WalletCard(
+                wallet: _wallet,
+                recentTransactions: _recentTransactions,
+                isLoading: _isLoadingWallet,
+                onAddMoney: _addMoney,
+                onViewHistory: _viewTransactionHistory,
               ),
 
               const SizedBox(height: 24),
@@ -382,6 +438,102 @@ class DriverDashboard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _AddMoneyDialog extends StatefulWidget {
+  @override
+  State<_AddMoneyDialog> createState() => _AddMoneyDialogState();
+}
+
+class _AddMoneyDialogState extends State<_AddMoneyDialog> {
+  int _selectedAmount = 500;
+  final List<int> _predefinedAmounts = [100, 250, 500, 1000, 2000, 5000];
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      title: const Text(
+        'Add Test Money',
+        style: TextStyle(fontWeight: FontWeight.bold),
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Select amount to add to your wallet:',
+            style: TextStyle(color: Colors.grey),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _predefinedAmounts.map((amount) {
+              final isSelected = amount == _selectedAmount;
+              return ChoiceChip(
+                label: Text('₹$amount'),
+                selected: isSelected,
+                onSelected: (selected) {
+                  if (selected) {
+                    setState(() => _selectedAmount = amount);
+                  }
+                },
+                selectedColor: Theme.of(context).primaryColor.withOpacity(0.2),
+                labelStyle: TextStyle(
+                  color: isSelected ? Theme.of(context).primaryColor : null,
+                  fontWeight: isSelected ? FontWeight.bold : null,
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.orange.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.orange.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.orange[700], size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'This is test currency for development purposes only.',
+                    style: TextStyle(
+                      color: Colors.orange[700],
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.of(context).pop(_selectedAmount),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Theme.of(context).primaryColor,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          child: Text('Add ₹$_selectedAmount'),
+        ),
+      ],
     );
   }
 }
