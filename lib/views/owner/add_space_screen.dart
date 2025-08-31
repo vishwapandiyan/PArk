@@ -42,6 +42,15 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
   bool _isSubmitting = false;
   bool _isGettingCurrentLocation = false;
 
+  // Price options based on rental mode and premium status
+  List<int> _priceOptions = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _updatePriceOptions();
+  }
+
   @override
   void dispose() {
     _placeNameController.dispose();
@@ -55,6 +64,16 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
     _priceController.dispose();
     _descriptionController.dispose();
     super.dispose();
+  }
+
+  void _updatePriceOptions() {
+    final isPremium = ParkingSpaceService.isPremiumSpace(_hasEvCharging, _hasShelter, _hasCctv);
+    _priceOptions = ParkingSpaceService.getPriceOptions(_selectedRentalMode ?? 'hourly', isPremium);
+    
+    // Set default price if current price is not in options
+    if (_priceOptions.isNotEmpty && !_priceOptions.contains(int.tryParse(_priceController.text))) {
+      _priceController.text = _priceOptions.first.toString();
+    }
   }
 
   @override
@@ -245,6 +264,7 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
                     onChanged: (value) {
                       setState(() {
                         _selectedRentalMode = value;
+                        _updatePriceOptions();
                       });
                     },
                     validator: (value) {
@@ -279,22 +299,7 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
                     },
                   ),
                   const SizedBox(height: 16),
-                  _buildTextFormField(
-                    controller: _priceController,
-                    label: 'Price per Unit',
-                    hint: 'Select price',
-                    icon: Icons.attach_money_outlined,
-                    keyboardType: TextInputType.number,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter price';
-                      }
-                      if (double.tryParse(value) == null) {
-                        return 'Please enter a valid number';
-                      }
-                      return null;
-                    },
-                  ),
+                  _buildPriceSelector(),
                 ],
               ),
 
@@ -313,6 +318,7 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
                     (value) {
                       setState(() {
                         _hasShelter = value ?? false;
+                        _updatePriceOptions();
                       });
                     },
                   ),
@@ -325,6 +331,7 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
                     (value) {
                       setState(() {
                         _hasCctv = value ?? false;
+                        _updatePriceOptions();
                       });
                     },
                   ),
@@ -337,6 +344,7 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
                     (value) {
                       setState(() {
                         _hasEvCharging = value ?? false;
+                        _updatePriceOptions();
                       });
                     },
                   ),
@@ -534,6 +542,83 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
             ),
           ),
           items: items,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPriceSelector() {
+    final theme = Theme.of(context);
+    final isPremium = ParkingSpaceService.isPremiumSpace(_hasEvCharging, _hasShelter, _hasCctv);
+    final priceRanges = ParkingSpaceService.getPriceRanges(_selectedRentalMode ?? 'hourly', isPremium);
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Price per Unit',
+              style: theme.textTheme.titleMedium,
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: isPremium 
+                    ? theme.colorScheme.tertiary.withOpacity(0.2)
+                    : theme.colorScheme.secondary.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                isPremium ? 'Premium' : 'Standard',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: isPremium 
+                      ? theme.colorScheme.tertiary
+                      : theme.colorScheme.secondary,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Price range: ₹${priceRanges['min']} - ₹${priceRanges['max']}',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurface.withOpacity(0.7),
+          ),
+        ),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<int>(
+          value: _priceOptions.isNotEmpty ? int.tryParse(_priceController.text) : null,
+          onChanged: (value) {
+            if (value != null) {
+              setState(() {
+                _priceController.text = value.toString();
+              });
+            }
+          },
+          validator: (value) {
+            if (value == null) {
+              return 'Please select a price';
+            }
+            return null;
+          },
+          decoration: InputDecoration(
+            hintText: 'Select price',
+            prefixIcon: Icon(Icons.attach_money_outlined),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          items: _priceOptions.map((price) {
+            return DropdownMenuItem(
+              value: price,
+              child: Text('₹$price'),
+            );
+          }).toList(),
         ),
       ],
     );
@@ -964,6 +1049,7 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
         throw Exception('User not authenticated');
       }
 
+      // Use ParkingSpaceService to create the space
       final spaceData = {
         'owner_id': authState.profile!.id,
         'place_name': _placeNameController.text,
@@ -983,7 +1069,7 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
         'has_ev_charging': _hasEvCharging,
         'has_shelter': _hasShelter,
         'has_cctv': _hasCctv,
-        'is_premium': _hasShelter && (_hasEvCharging || _hasCctv),
+        'is_premium': ParkingSpaceService.isPremiumSpace(_hasEvCharging, _hasShelter, _hasCctv),
         'is_active': true,
         'is_paused': false,
         'total_bookings': 0,
