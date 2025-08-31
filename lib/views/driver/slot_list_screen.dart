@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/parking_slot_model.dart';
+import '../../models/parking_space_model.dart';
+import '../../services/enhanced_ml_service.dart';
 import '../../widgets/slot_card.dart';
 
 class SlotListScreen extends StatefulWidget {
@@ -10,7 +12,7 @@ class SlotListScreen extends StatefulWidget {
 }
 
 class _SlotListScreenState extends State<SlotListScreen> {
-  List<ParkingSlotModel> _filteredSlots = [];
+  List<EnhancedParkingSlot> _enhancedSlots = [];
   String _destination = '';
   String _carModel = '';
   Map<String, bool> _preferences = {};
@@ -25,18 +27,45 @@ class _SlotListScreenState extends State<SlotListScreen> {
     final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     
     if (args != null) {
+      print('🎯 SlotListScreen: Received arguments: ${args.keys.toList()}');
+      print('🎯 SlotListScreen: enhancedSlots type: ${args['enhancedSlots']?.runtimeType}');
+      print('🎯 SlotListScreen: enhancedSlots length: ${args['enhancedSlots']?.length}');
+      
       setState(() {
-        _filteredSlots = List<ParkingSlotModel>.from(args['slots'] ?? []);
+        // Fix: Use enhancedSlots instead of slots
+        _enhancedSlots = List<EnhancedParkingSlot>.from(args['enhancedSlots'] ?? []);
         _destination = args['destination'] ?? '';
         _carModel = args['carModel'] ?? '';
         _preferences = Map<String, bool>.from(args['preferences'] ?? {});
       });
+      
+      // Debug: Print what we received
+      print('🎯 SlotListScreen: Received ${_enhancedSlots.length} enhanced slots');
+      if (_enhancedSlots.isNotEmpty) {
+        print('   - First slot: ${_enhancedSlots.first.parkingSpace.placeName}');
+        print('   - ML Score: ${_enhancedSlots.first.mlScore}');
+        print('   - Slot ID: ${_enhancedSlots.first.id}');
+        print('   - Place Name: ${_enhancedSlots.first.placeName}');
+      } else {
+        print('   - No enhanced slots received!');
+        print('   - Args keys: ${args.keys.toList()}');
+        print('   - Args values: ${args.values.toList()}');
+      }
+    } else {
+      print('❌ SlotListScreen: No arguments received!');
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    
+    // Debug: Print current state during build
+    print('🎯 SlotListScreen: Building with ${_enhancedSlots.length} slots');
+    if (_enhancedSlots.isNotEmpty) {
+      print('   - First slot place name: ${_enhancedSlots.first.placeName}');
+      print('   - First slot ML score: ${_enhancedSlots.first.mlScore}');
+    }
     
     return Scaffold(
       appBar: AppBar(
@@ -68,7 +97,7 @@ class _SlotListScreenState extends State<SlotListScreen> {
             
             // Slots List
             Expanded(
-              child: _filteredSlots.isEmpty
+              child: _enhancedSlots.isEmpty
                   ? _buildEmptyState()
                   : _buildSlotsList(),
             ),
@@ -211,7 +240,7 @@ class _SlotListScreenState extends State<SlotListScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Found ${_filteredSlots.length} Available Space${_filteredSlots.length != 1 ? 's' : ''}',
+                  'Found ${_enhancedSlots.length} Available Space${_enhancedSlots.length != 1 ? 's' : ''}',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                     color: theme.colorScheme.secondary,
@@ -276,9 +305,9 @@ class _SlotListScreenState extends State<SlotListScreen> {
   Widget _buildSlotsList() {
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      itemCount: _filteredSlots.length,
+      itemCount: _enhancedSlots.length,
       itemBuilder: (context, index) {
-        final slot = _filteredSlots[index];
+        final slot = _enhancedSlots[index];
         return Padding(
           padding: const EdgeInsets.only(bottom: 16),
           child: SlotCard(

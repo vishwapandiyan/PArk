@@ -51,6 +51,12 @@ class CarModel {
 
   String get dimensions => '${length.toStringAsFixed(1)}m × ${width.toStringAsFixed(1)}m × ${height.toStringAsFixed(1)}m';
 
+  Map<String, double> get dimensionsMap => {
+    'length': length,
+    'width': width,
+    'height': height,
+  };
+
   @override
   String toString() => displayName;
 

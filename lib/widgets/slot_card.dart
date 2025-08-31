@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/parking_slot_model.dart';
+import '../services/enhanced_ml_service.dart';
 
 class SlotCard extends StatelessWidget {
   final dynamic slot;
@@ -15,17 +16,58 @@ class SlotCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     
-    // Handle both ParkingSlotModel and Map<String, dynamic>
-    final address = slot is ParkingSlotModel ? slot.address : slot['address'];
-    final pricing = slot is ParkingSlotModel ? slot.pricing : slot['pricing'];
-    final dimensions = slot is ParkingSlotModel ? slot.dimensions : slot['dimensions'];
-    final rating = slot is ParkingSlotModel ? slot.rating : slot['rating'];
-    final reviewCount = slot is ParkingSlotModel ? slot.reviewCount : slot['review_count'];
-    final hasShelter = slot is ParkingSlotModel ? slot.hasShelter : slot['has_shelter'];
-    final hasCCTV = slot is ParkingSlotModel ? slot.hasCCTV : slot['has_cctv'];
-    final hasEVCharging = slot is ParkingSlotModel ? slot.hasEVCharging : slot['has_ev_charging'];
+    // Handle EnhancedParkingSlot, ParkingSlotModel, and Map<String, dynamic>
+    String? address;
+    dynamic pricing;
+    String? dimensions;
+    double? rating;
+    int? reviewCount;
+    bool? hasShelter;
+    bool? hasCCTV;
+    bool? hasEVCharging;
+    double? mlScore;
+    bool hasDynamicPricing = false;
+    
+    if (slot is EnhancedParkingSlot) {
+      // EnhancedParkingSlot with ML data
+      final enhancedSlot = slot as EnhancedParkingSlot;
+      address = enhancedSlot.placeName;
+      pricing = enhancedSlot.getCurrentPrice('hourly');
+      dimensions = '${enhancedSlot.length}m × ${enhancedSlot.width}m × ${enhancedSlot.height}m';
+      rating = 4.5; // Default rating
+      reviewCount = 0; // Default review count
+      hasShelter = enhancedSlot.hasShelter;
+      hasCCTV = enhancedSlot.hasCctv;
+      hasEVCharging = enhancedSlot.hasEvCharging;
+      mlScore = enhancedSlot.mlScore;
+      hasDynamicPricing = enhancedSlot.hasDynamicPricing;
+    } else if (slot is ParkingSlotModel) {
+      // Original ParkingSlotModel
+      address = slot.address;
+      pricing = slot.pricing;
+      dimensions = slot.dimensions;
+      rating = slot.rating;
+      reviewCount = slot.reviewCount;
+      hasShelter = slot.hasShelter;
+      hasCCTV = slot.hasCCTV;
+      hasEVCharging = slot.hasEVCharging;
+    } else {
+      // Map<String, dynamic> fallback
+      address = slot['address'];
+      pricing = slot['pricing'];
+      dimensions = slot['dimensions'];
+      rating = slot['rating'];
+      reviewCount = slot['review_count'];
+      hasShelter = slot['has_shelter'];
+      hasCCTV = slot['has_cctv'];
+      hasEVCharging = slot['has_ev_charging'];
+    }
 
     return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
@@ -52,24 +94,63 @@ class SlotCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${dimensions ?? 'Dimensions not available'}',
+                          dimensions ?? 'Dimensions not available',
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: theme.colorScheme.onSurface.withOpacity(0.6),
                           ),
                         ),
+                        // Show ML Score if available
+                        if (mlScore != null) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.psychology,
+                                size: 16,
+                                color: theme.colorScheme.tertiary,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'ML Score: ${mlScore.toStringAsFixed(3)}',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.tertiary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              if (hasDynamicPricing) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.tertiary,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    'DYNAMIC',
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.primary,
+                      color: hasDynamicPricing ? theme.colorScheme.tertiary : theme.colorScheme.primary,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      '\$${pricing?.toString() ?? 'N/A'}/hr',
+                      '₹${pricing?.toString() ?? 'N/A'}/hr',
                       style: theme.textTheme.labelLarge?.copyWith(
-                        color: theme.colorScheme.onPrimary,
+                        color: Colors.white,
                         fontWeight: FontWeight.w600,
                       ),
                     ),

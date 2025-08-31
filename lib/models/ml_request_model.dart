@@ -91,6 +91,11 @@ class MLParkingResponse {
   final int? priceMonthly;  // ML dynamic price (nullable)
   final int? priceYearly;   // ML dynamic price (nullable)
   final double score;       // ML confidence score
+  // Additional fields from Flask response
+  final double? distanceToUser;
+  final double? latitude;
+  final double? longitude;
+  final String? placeName;
 
   const MLParkingResponse({
     required this.id,
@@ -100,17 +105,25 @@ class MLParkingResponse {
     this.priceMonthly,
     this.priceYearly,
     required this.score,
+    this.distanceToUser,
+    this.latitude,
+    this.longitude,
+    this.placeName,
   });
 
   factory MLParkingResponse.fromJson(Map<String, dynamic> json) {
     return MLParkingResponse(
-      id: json['id'],
-      ownerId: json['owner_id'],
-      slotNumber: json['slot_number'],
+      id: json['id']?.toString() ?? '',
+      ownerId: json['owner_id']?.toString() ?? 'unknown',
+      slotNumber: json['slot_number']?.toString() ?? json['id']?.toString() ?? '',
       priceHourly: json['price_hourly']?.toInt(),
       priceMonthly: json['price_monthly']?.toInt(),
       priceYearly: json['price_yearly']?.toInt(),
       score: (json['score'] ?? 0.0).toDouble(),
+      distanceToUser: json['distance_to_user']?.toDouble(),
+      latitude: json['latitude']?.toDouble(),
+      longitude: json['longitude']?.toDouble(),
+      placeName: json['place_name']?.toString(),
     );
   }
 

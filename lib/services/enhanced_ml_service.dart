@@ -1,39 +1,97 @@
 import 'dart:convert';
+import 'dart:math' as m;
 import 'package:http/http.dart' as http;
 import '../models/ml_request_model.dart';
 import '../services/parking_space_service.dart';
 import '../models/parking_space_model.dart';
 
 class EnhancedMLService {
-  // TODO: Replace with your ML API endpoint
-  static const String _baseUrl = 'YOUR_ML_API_URL_HERE';
+  // Fixed URL (remove endpoint)
+  static const String _baseUrl = 'https://484e2ff79fed.ngrok-free.app';
   
   /// Get ML-based parking recommendations
   static Future<List<MLParkingResponse>> getMLRecommendations(
     MLParkingRequest request
   ) async {
     try {
+      print('🚀 Calling ML API with request: ${request.toJson()}');
+      print('🌐 API URL: $_baseUrl/predict_best_parking');
+      
+      final requestBody = _convertToFlaskFormat(request);
+      print('📤 Request body being sent to Flask: $requestBody');
+      print('📤 Request body JSON: ${jsonEncode(requestBody)}');
+      
       final response = await http.post(
-        Uri.parse('$_baseUrl/api/parking-recommendation'),
+        Uri.parse('$_baseUrl/predict_best_parking'), // Correct endpoint
         headers: {
           'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true', // Add ngrok header
         },
-        body: jsonEncode(request.toJson()),
+        body: jsonEncode(requestBody), // Convert format
       );
 
+      print('📡 ML API Response Status: ${response.statusCode}');
+      print('📡 ML API Response Headers: ${response.headers}');
+      print('📡 ML API Response Body: ${response.body}');
+
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data
-            .map((json) => MLParkingResponse.fromJson(json))
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        print('📊 Parsed response data: $data');
+        
+        if (!data.containsKey('best_spots')) {
+          print('⚠️ Response missing "best_spots" key. Available keys: ${data.keys.toList()}');
+          return [];
+        }
+        
+        final bestSpots = data['best_spots'] as List; // Fix response parsing
+        print('🎯 Found ${bestSpots.length} best spots from ML API');
+        
+        final results = bestSpots
+            .map((json) {
+              print('🔄 Parsing ML spot: $json');
+              try {
+                return MLParkingResponse.fromJson(json);
+              } catch (e) {
+                print('❌ Error parsing ML spot $json: $e');
+                rethrow;
+              }
+            })
             .toList();
+        
+        print('✅ Successfully parsed ${results.length} ML responses');
+        return results;
       } else {
-        throw Exception('ML API Error: ${response.statusCode}');
+        print('❌ ML API Error: ${response.statusCode} - ${response.body}');
+        print('❌ Response headers: ${response.headers}');
+        throw Exception('ML API Error: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
-      print('Error calling ML API: $e');
+      print('❌ Error calling ML API: $e');
+      print('❌ Error type: ${e.runtimeType}');
+      if (e is http.ClientException) {
+        print('❌ Network error details: ${e.message}');
+      }
       // Return empty list if ML fails - will trigger fallback
       return [];
     }
+  }
+
+  /// Convert MLParkingRequest to Flask API format
+  /// Note: Flask ML model only needs these specific fields
+  static Map<String, dynamic> _convertToFlaskFormat(MLParkingRequest request) {
+    final flaskRequest = {
+      'area': request.area,
+      'latitude': request.latitude,
+      'longitude': request.longitude,
+      'wants_cctv': request.wantsCctv,
+      'wants_covered': request.wantsCovered,
+      'wants_ev': request.wantsEv,
+      'wants_premium': request.wantsPremium,
+      'max_price': request.maxPrice,
+    };
+    
+    print('🔄 Converting to Flask format: $flaskRequest');
+    return flaskRequest;
   }
 
   /// Get enhanced parking slots with ML scores and dynamic pricing
@@ -50,17 +108,28 @@ class EnhancedMLService {
     required String carModelId,
   }) async {
     try {
+      print('🎯 Starting Enhanced ML Service for area: $area');
+      print('📍 Location: $latitude, $longitude');
+      print('🚗 Car dimensions: $carDimensions');
+      print('💰 Max price: $maxPrice');
+      
       // Step 1: Get all parking spaces from database
+      print('📊 Step 1: Fetching all parking spaces from database...');
       final allSpaces = await _getAllParkingSpaces();
+      print('📊 Found ${allSpaces.length} total parking spaces');
       
       // Step 2: Filter by car dimensions (owner space vs car compatibility)
+      print('🔍 Step 2: Filtering by car dimensions...');
       final compatibleSpaces = _filterByDimensions(allSpaces, carDimensions);
+      print('🔍 Found ${compatibleSpaces.length} dimensionally compatible spaces');
       
       if (compatibleSpaces.isEmpty) {
+        print('⚠️ No dimensionally compatible spaces found');
         return [];
       }
 
       // Step 3: Call ML API for recommendations
+      print('🤖 Step 3: Calling ML API for recommendations...');
       final mlRequest = MLParkingRequest(
         area: area,
         latitude: latitude,
@@ -75,17 +144,23 @@ class EnhancedMLService {
       );
 
       final mlRecommendations = await getMLRecommendations(mlRequest);
+      print('🤖 ML API returned ${mlRecommendations.length} recommendations');
       
       // Step 4: Merge ML results with database parking spaces
+      print('🔄 Step 4: Merging ML results with database spaces...');
       final enhancedSlots = _mergeMLWithSpaces(compatibleSpaces, mlRecommendations);
+      print('🔄 Created ${enhancedSlots.length} enhanced slots');
       
       // Step 5: Sort by ML score (highest first)
+      print('📈 Step 5: Sorting by ML score...');
       enhancedSlots.sort((a, b) => b.mlScore.compareTo(a.mlScore));
       
+      print('✅ Enhanced ML Service completed successfully!');
       return enhancedSlots;
       
     } catch (e) {
-      print('Error in getEnhancedSlots: $e');
+      print('❌ Error in getEnhancedSlots: $e');
+      print('🔄 Falling back to basic dimension filtering...');
       // Fallback: return compatible spaces without ML scoring
       final allSpaces = await _getAllParkingSpaces();
       final compatibleSpaces = _filterByDimensions(allSpaces, carDimensions);
@@ -128,18 +203,83 @@ class EnhancedMLService {
     List<ParkingSpace> spaces,
     List<MLParkingResponse> mlRecommendations
   ) {
+    print('🔄 Merging ${spaces.length} parking spaces with ${mlRecommendations.length} ML recommendations');
+    
+    // Create a map of ML recommendations by ID for quick lookup
     final mlMap = <String, MLParkingResponse>{};
     for (final ml in mlRecommendations) {
       mlMap[ml.id] = ml;
+      print('📊 ML recommendation ID: ${ml.id}, Score: ${ml.score}');
+    }
+    
+    // Create a map of parking spaces by ID for quick lookup
+    final spaceMap = <String, ParkingSpace>{};
+    for (final space in spaces) {
+      spaceMap[space.id] = space;
+      print('🏠 Parking space ID: ${space.id}, Name: ${space.placeName}');
     }
 
+    // Try to match by ID first, then by other criteria if needed
     return spaces.map((space) {
-      final mlData = mlMap[space.id];
+      MLParkingResponse? mlData = mlMap[space.id];
+      
+      // If no direct ID match, try to find by location or other criteria
+      if (mlData == null && mlRecommendations.isNotEmpty) {
+        // Find the best matching ML recommendation based on location
+        MLParkingResponse? bestMatch;
+        double bestDistance = double.infinity;
+        
+        for (final ml in mlRecommendations) {
+          if (ml.latitude != null && ml.longitude != null) {
+            final distance = _calculateDistance(
+              space.latitude, 
+              space.longitude, 
+              ml.latitude!, 
+              ml.longitude!
+            );
+            if (distance < bestDistance) {
+              bestDistance = distance;
+              bestMatch = ml;
+            }
+          }
+        }
+        
+        if (bestMatch != null && bestDistance < 0.1) { // Within 100m
+          mlData = bestMatch;
+          print('📍 Matched space ${space.id} with ML recommendation ${bestMatch.id} by location (distance: ${bestDistance.toStringAsFixed(3)}km)');
+        }
+      }
+      
+      if (mlData != null) {
+        print('✅ Successfully matched space ${space.id} with ML recommendation ${mlData.id}');
+      } else {
+        print('⚠️ No ML recommendation found for space ${space.id}');
+      }
+      
       return EnhancedParkingSlot.fromParkingSpace(
         space, 
         mlRecommendation: mlData
       );
     }).toList();
+  }
+
+  /// Calculate distance between two points using Haversine formula
+  static double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+    const R = 6371; // Earth's radius in kilometers
+    
+    final lat1Rad = lat1 * (m.pi / 180);
+    final lon1Rad = lon1 * (m.pi / 180);
+    final lat2Rad = lat2 * (m.pi / 180);
+    final lon2Rad = lon2 * (m.pi / 180);
+    
+    final dLat = lat2Rad - lat1Rad;
+    final dLon = lon2Rad - lon1Rad;
+    
+    final a = m.sin(dLat / 2) * m.sin(dLat / 2) + 
+               m.cos(lat1Rad) * m.cos(lat2Rad) * m.sin(dLon / 2) * m.sin(dLon / 2);
+    final c = 2 * m.atan(m.sqrt(a) / m.sqrt(1 - a));
+    
+    return R * c;
   }
 
   /// Apply filters to enhanced slots
@@ -169,6 +309,44 @@ class EnhancedMLService {
 
       return true;
     }).toList();
+  }
+
+  /// Test method to verify ML API integration
+  static Future<void> testMLAPI() async {
+    print('🧪 Testing ML API Integration...');
+    
+    try {
+      final testRequest = MLParkingRequest(
+        area: 'pondy',
+        latitude: 11.9323,
+        longitude: 79.7924,
+        wantsCctv: false,
+        wantsCovered: false,
+        wantsEv: false,
+        wantsPremium: false,
+        maxPrice: 1000,
+        carDimensions: {'length': 4.0, 'width': 1.7, 'height': 1.5},
+        carModelId: 'test_car_001',
+      );
+      
+      print('📋 Test request: ${testRequest.toJson()}');
+      
+      final results = await getMLRecommendations(testRequest);
+      
+      print('✅ ML API Test Result: ${results.length} recommendations received');
+      
+      if (results.isNotEmpty) {
+        final first = results.first;
+        print('   - First recommendation:');
+        print('     ID: ${first.id}');
+        print('     Score: ${first.score}');
+        print('     Price: ${first.priceHourly}');
+        print('     Distance: ${first.distanceToUser}');
+      }
+      
+    } catch (e) {
+      print('❌ ML API Test Failed: $e');
+    }
   }
 }
 
@@ -222,5 +400,9 @@ class EnhancedParkingSlot {
   bool get hasEvCharging => parkingSpace.hasEvCharging;
   bool get isPremium => parkingSpace.isPremium;
   String get rentalMode => parkingSpace.rentalMode;
+  
+  // Add missing dimension properties
+  double get length => parkingSpace.length;
+  double get width => parkingSpace.width;
+  double get height => parkingSpace.height;
 }
-
