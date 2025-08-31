@@ -302,6 +302,78 @@ class _SlotListScreenState extends State<SlotListScreen> {
     );
   }
 
+      ParkingSlotModel _convertToParkingSlotModel(EnhancedParkingSlot enhancedSlot) {
+    print('🔄 Converting EnhancedParkingSlot to ParkingSlotModel...');
+    print('🔄 EnhancedSlot ID: ${enhancedSlot.id}');
+    print('�� EnhancedSlot placeName: ${enhancedSlot.placeName}');
+    print('🔄 EnhancedSlot parkingSpace ID: ${enhancedSlot.parkingSpace.id}');
+    
+    try {
+      // Safe property access with extensive fallbacks
+      final address = enhancedSlot.placeName ?? 
+                     enhancedSlot.parkingSpace.placeName ?? 
+                     enhancedSlot.parkingSpace.address ??
+                     'Address not available';
+      
+      final timeFrom = enhancedSlot.parkingSpace.availableFrom ?? '09:00';
+      final timeTo = enhancedSlot.parkingSpace.availableTo ?? '18:00';
+      
+      final hourlyPrice = enhancedSlot.getCurrentPrice('hourly');
+      
+      print('🔄 Conversion successful - Address: $address, Price: $hourlyPrice');
+      
+      return ParkingSlotModel(
+        id: enhancedSlot.id,
+        ownerId: enhancedSlot.parkingSpace.ownerId,
+        address: address,
+        latitude: enhancedSlot.latitude,
+        longitude: enhancedSlot.longitude,
+        dimensions: '${enhancedSlot.length}m × ${enhancedSlot.width}m × ${enhancedSlot.height}m',
+        photos: [], // Empty list as default
+        pricing: {
+          'hourly': hourlyPrice,
+          'daily': hourlyPrice * 24,
+          'monthly': hourlyPrice * 24 * 30,
+        },
+        availableDurations: ['hourly', 'daily', 'monthly'],
+        timeFrom: timeFrom,
+        timeTo: timeTo,
+        hasShelter: enhancedSlot.hasShelter ?? false,
+        hasCCTV: enhancedSlot.hasCctv ?? false,
+        hasEVCharging: enhancedSlot.hasEvCharging ?? false,
+        rating: 4.5, // Default rating
+        reviewCount: 0, // Default review count
+      );
+    } catch (e, stackTrace) {
+      print('❌ Error converting EnhancedParkingSlot to ParkingSlotModel: $e');
+      print('❌ Stack trace: $stackTrace');
+      print('❌ EnhancedSlot ID: ${enhancedSlot.id}');
+      print('❌ EnhancedSlot placeName: ${enhancedSlot.placeName}');
+      print('❌ EnhancedSlot parkingSpace ID: ${enhancedSlot.parkingSpace.id}');
+      
+      // Fallback with safe defaults
+      return ParkingSlotModel(
+        id: enhancedSlot.id,
+        ownerId: enhancedSlot.parkingSpace.ownerId,
+        address: 'Address not available',
+        latitude: enhancedSlot.latitude,
+        longitude: enhancedSlot.longitude,
+        dimensions: 'Dimensions not available',
+        photos: [],
+        pricing: {'hourly': 100},
+        availableDurations: ['hourly'],
+        timeFrom: '09:00',
+        timeTo: '18:00',
+        hasShelter: false,
+        hasCCTV: false,
+        hasEVCharging: false,
+        rating: 4.0,
+        reviewCount: 0,
+      );
+    }
+  }
+
+
   Widget _buildSlotsList() {
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -313,9 +385,15 @@ class _SlotListScreenState extends State<SlotListScreen> {
           child: SlotCard(
             slot: slot,
             onTap: () {
+             print('🎯 View Details clicked for slot: ${slot.id}');
+              final convertedSlot = _convertToParkingSlotModel(slot);
+              print('🎯 Converted slot type: ${convertedSlot.runtimeType}');
+              print('�� Converted slot ID: ${convertedSlot.id}');
+              print('🎯 Converted slot address: ${convertedSlot.address}');
+              
               Navigator.of(context).pushNamed(
                 '/slot_detail',
-                arguments: slot,
+                arguments: convertedSlot,
               );
             },
           ),

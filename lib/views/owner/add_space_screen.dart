@@ -3,10 +3,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'dart:io';
 import '../../controllers/auth_controller.dart';
 import '../../models/car_model.dart';
 import '../../services/car_service.dart';
 import '../../services/parking_space_service.dart';
+import '../../config/storage_service.dart';
 import '../../widgets/google_maps_location_picker.dart';
 
 class AddSpaceScreen extends StatefulWidget {
@@ -24,13 +26,14 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
   final _lengthController = TextEditingController();
   final _widthController = TextEditingController();
   final _heightController = TextEditingController();
-  final _availableFromController = TextEditingController();
-  final _availableToController = TextEditingController();
   final _priceController = TextEditingController();
   final _descriptionController = TextEditingController();
 
   String? _selectedRentalMode = 'hourly';
-  String? _selectedRentalDuration = '1 month';
+  DateTime? _rentalDurationFrom;
+  DateTime? _rentalDurationTo;
+  TimeOfDay? _availableFrom;
+  TimeOfDay? _availableTo;
   double? _latitude;
   double? _longitude;
   String _selectedAddress = '';
@@ -41,6 +44,9 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
   bool _hasCctv = false;
   bool _isSubmitting = false;
   bool _isGettingCurrentLocation = false;
+
+  // Generated time slots
+  List<Map<String, String>> _generatedTimeSlots = [];
 
   // Price options based on rental mode and premium status
   List<int> _priceOptions = [];
@@ -59,8 +65,6 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
     _lengthController.dispose();
     _widthController.dispose();
     _heightController.dispose();
-    _availableFromController.dispose();
-    _availableToController.dispose();
     _priceController.dispose();
     _descriptionController.dispose();
     super.dispose();
@@ -74,6 +78,53 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
     if (_priceOptions.isNotEmpty && !_priceOptions.contains(int.tryParse(_priceController.text))) {
       _priceController.text = _priceOptions.first.toString();
     }
+  }
+
+  /// Generate time slots with 20-minute gaps
+  void _generateTimeSlots() {
+    if (_availableFrom == null || _availableTo == null) return;
+
+    _generatedTimeSlots.clear();
+    
+    // Convert to minutes for easier calculation
+    int startMinutes = _availableFrom!.hour * 60 + _availableFrom!.minute;
+    int endMinutes = _availableTo!.hour * 60 + _availableTo!.minute;
+    
+    // Generate slots with 20-minute gaps
+    int currentSlotStart = startMinutes;
+    int slotNumber = 1;
+    
+    while (currentSlotStart < endMinutes) {
+      int slotEnd = currentSlotStart + 60; // 1-hour slots
+      if (slotEnd > endMinutes) break;
+      
+      String startTime = _formatTimeFromMinutes(currentSlotStart);
+      String endTime = _formatTimeFromMinutes(slotEnd);
+      
+      _generatedTimeSlots.add({
+        'slot': 'Slot $slotNumber',
+        'time': '$startTime - $endTime',
+        'start_minutes': currentSlotStart.toString(),
+        'end_minutes': slotEnd.toString(),
+        'is_available': 'true', // Default to available
+      });
+      
+      currentSlotStart = slotEnd + 20; // 20-minute gap
+      slotNumber++;
+    }
+    
+    setState(() {});
+  }
+
+  String _formatTimeFromMinutes(int minutes) {
+    int hours = minutes ~/ 60;
+    int mins = minutes % 60;
+    String period = hours >= 12 ? 'PM' : 'AM';
+    
+    if (hours > 12) hours -= 12;
+    if (hours == 0) hours = 12;
+    
+    return '${hours.toString().padLeft(2, '0')}:${mins.toString().padLeft(2, '0')} $period';
   }
 
   @override
@@ -219,93 +270,7 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
 
               const SizedBox(height: 32),
 
-              // Rental Settings Section
-              _buildSection(
-                'Rental Settings',
-                Icons.schedule_outlined,
-                [
-                  _buildTextFormField(
-                    controller: _availableFromController,
-                    label: 'Available From',
-                    hint: 'From',
-                    icon: Icons.access_time_outlined,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter available time';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  _buildTextFormField(
-                    controller: _availableToController,
-                    label: 'Available To',
-                    hint: 'To',
-                    icon: Icons.access_time_outlined,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter available time';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  _buildDropdownFormField(
-                    value: _selectedRentalMode,
-                    label: 'Rental Mode',
-                    hint: 'Select rental mode',
-                    icon: Icons.calendar_today_outlined,
-                    items: const [
-                      DropdownMenuItem(value: 'hourly', child: Text('Hourly')),
-                      DropdownMenuItem(value: 'daily', child: Text('Daily')),
-                      DropdownMenuItem(value: 'monthly', child: Text('Monthly')),
-                      DropdownMenuItem(value: 'yearly', child: Text('Yearly')),
-                    ],
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedRentalMode = value;
-                        _updatePriceOptions();
-                      });
-                    },
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please select rental mode';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  _buildDropdownFormField(
-                    value: _selectedRentalDuration,
-                    label: 'Rental Duration',
-                    hint: 'Select rental period',
-                    icon: Icons.date_range_outlined,
-                    items: const [
-                      DropdownMenuItem(value: '1 month', child: Text('1 Month')),
-                      DropdownMenuItem(value: '3 months', child: Text('3 Months')),
-                      DropdownMenuItem(value: '6 months', child: Text('6 Months')),
-                      DropdownMenuItem(value: '1 year', child: Text('1 Year')),
-                    ],
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedRentalDuration = value;
-                      });
-                    },
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please select rental duration';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  _buildPriceSelector(),
-                ],
-              ),
-
-              const SizedBox(height: 32),
-
-              // Facilities Section
+              // Available Facilities Section (moved before Rental Settings)
               _buildSection(
                 'Available Facilities',
                 Icons.build_outlined,
@@ -353,6 +318,201 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
 
               const SizedBox(height: 32),
 
+              // Rental Settings Section
+              _buildSection(
+                'Rental Settings',
+                Icons.schedule_outlined,
+                [
+                  // Time pickers for Available From - To
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildTimePickerField(
+                          label: 'Available From',
+                          value: _availableFrom,
+                          onChanged: (time) {
+                            setState(() {
+                              _availableFrom = time;
+                              _generateTimeSlots();
+                            });
+                          },
+                          validator: (value) {
+                            if (value == null) {
+                              return 'Please select start time';
+                            }
+                            return null;
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _buildTimePickerField(
+                          label: 'Available To',
+                          value: _availableTo,
+                          onChanged: (time) {
+                            setState(() {
+                              _availableTo = time;
+                              _generateTimeSlots();
+                            });
+                          },
+                          validator: (value) {
+                            if (value == null) {
+                              return 'Please select end time';
+                            }
+                            return null;
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  
+
+                  
+                  const SizedBox(height: 16),
+                  _buildDropdownFormField(
+                    value: _selectedRentalMode,
+                    label: 'Rental Mode',
+                    hint: 'Select rental mode',
+                    icon: Icons.calendar_today_outlined,
+                    items: const [
+                      DropdownMenuItem(value: 'hourly', child: Text('Hourly')),
+                      DropdownMenuItem(value: 'daily', child: Text('Daily')),
+                      DropdownMenuItem(value: 'monthly', child: Text('Monthly')),
+                      DropdownMenuItem(value: 'yearly', child: Text('Yearly')),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedRentalMode = value;
+                        _updatePriceOptions();
+                      });
+                    },
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please select rental mode';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Calendar-based rental duration picker
+                  _buildDateRangePicker(),
+                  
+                  const SizedBox(height: 16),
+                  _buildPriceSelector(),
+                ],
+              ),
+
+              const SizedBox(height: 32),
+
+              // Time Slots Card (separate from Rental Settings)
+              if (_generatedTimeSlots.isNotEmpty)
+                _buildSection(
+                  'Time Slots',
+                  Icons.schedule_outlined,
+                  [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.secondary.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: theme.colorScheme.secondary.withOpacity(0.2)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.info_outline, color: theme.colorScheme.secondary, size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Generated Time Slots (20-minute gaps)',
+                                  style: TextStyle(
+                                    color: theme.colorScheme.secondary,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          ...(_generatedTimeSlots.asMap().entries.map((entry) {
+                            final index = entry.key;
+                            final slot = entry.value;
+                            final isAvailable = slot['is_available'] != 'false';
+                            
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: isAvailable 
+                                    ? theme.colorScheme.primary.withOpacity(0.1)
+                                    : theme.colorScheme.outline.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: isAvailable 
+                                      ? theme.colorScheme.primary.withOpacity(0.3)
+                                      : theme.colorScheme.outline.withOpacity(0.3),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.access_time_outlined,
+                                    size: 20,
+                                    color: isAvailable 
+                                        ? theme.colorScheme.primary
+                                        : theme.colorScheme.outline,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          slot['slot'] ?? 'Slot ${index + 1}',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            color: isAvailable 
+                                                ? theme.colorScheme.primary
+                                                : theme.colorScheme.outline,
+                                          ),
+                                        ),
+                                        Text(
+                                          slot['time'] ?? '',
+                                          style: TextStyle(
+                                            color: isAvailable 
+                                                ? theme.colorScheme.primary
+                                                : theme.colorScheme.outline,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Switch(
+                                    value: isAvailable,
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _generatedTimeSlots[index]['is_available'] = value.toString();
+                                      });
+                                    },
+                                    activeColor: theme.colorScheme.primary,
+                                    inactiveThumbColor: theme.colorScheme.outline,
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList()),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+              const SizedBox(height: 32),
+
               // Documentation Section
               _buildSection(
                 'Documentation',
@@ -386,23 +546,6 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
 
               const SizedBox(height: 32),
 
-              // Description Section
-              _buildSection(
-                'Additional Information',
-                Icons.info_outline,
-                [
-                  _buildTextFormField(
-                    controller: _descriptionController,
-                    label: 'Description',
-                    hint: '24/7 video surveillance for security',
-                    icon: Icons.edit_outlined,
-                    maxLines: 3,
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 32),
-
               // Submit Button
               _buildAddSpaceButton(),
             ],
@@ -412,6 +555,7 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
     );
   }
 
+  // Helper methods...
   Widget _buildProgressIndicator() {
     final theme = Theme.of(context);
     
@@ -481,7 +625,6 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
     TextInputType? keyboardType,
     int maxLines = 1,
     String? Function(String?)? validator,
-    bool enabled = true,
   }) {
     final theme = Theme.of(context);
     
@@ -497,15 +640,14 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
           controller: controller,
           keyboardType: keyboardType,
           maxLines: maxLines,
-          enabled: enabled,
-          validator: validator,
           decoration: InputDecoration(
             hintText: hint,
             prefixIcon: Icon(icon),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(8),
             ),
           ),
+          validator: validator,
         ),
       ],
     );
@@ -517,7 +659,7 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
     required String hint,
     required IconData icon,
     required List<DropdownMenuItem<String>> items,
-    required void Function(String?) onChanged,
+    required ValueChanged<String?> onChanged,
     String? Function(String?)? validator,
   }) {
     final theme = Theme.of(context);
@@ -532,16 +674,182 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
           value: value,
-          onChanged: onChanged,
-          validator: validator,
           decoration: InputDecoration(
             hintText: hint,
             prefixIcon: Icon(icon),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(8),
             ),
           ),
           items: items,
+          onChanged: onChanged,
+          validator: validator,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTimePickerField({
+    required String label,
+    required TimeOfDay? value,
+    required ValueChanged<TimeOfDay?> onChanged,
+    required String? Function(TimeOfDay?) validator,
+  }) {
+    final theme = Theme.of(context);
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        InkWell(
+          onTap: () async {
+            final time = await showTimePicker(
+              context: context,
+              initialTime: value ?? TimeOfDay.now(),
+            );
+            if (time != null) {
+              onChanged(time);
+            }
+          },
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            decoration: BoxDecoration(
+              border: Border.all(color: theme.colorScheme.outline),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.access_time_outlined, color: theme.colorScheme.primary, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    value != null ? value.format(context) : 'Select Time',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: value != null ? theme.colorScheme.onSurface : theme.colorScheme.onSurface.withOpacity(0.5),
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Icon(Icons.arrow_drop_down, color: theme.colorScheme.primary, size: 20),
+              ],
+            ),
+          ),
+        ),
+        if (validator(value) != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              validator(value)!,
+              style: TextStyle(
+                color: theme.colorScheme.error,
+                fontSize: 12,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildDateRangePicker() {
+    final theme = Theme.of(context);
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Rental Duration',
+          style: theme.textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: InkWell(
+                onTap: () async {
+                  final date = await showDatePicker(
+                    context: context,
+                    initialDate: _rentalDurationFrom ?? DateTime.now(),
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                  );
+                  if (date != null) {
+                    setState(() {
+                      _rentalDurationFrom = date;
+                    });
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: theme.colorScheme.outline),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.calendar_today_outlined, color: theme.colorScheme.primary),
+                      const SizedBox(width: 12),
+                      Text(
+                        _rentalDurationFrom != null 
+                            ? '${_rentalDurationFrom!.day}/${_rentalDurationFrom!.month}/${_rentalDurationFrom!.year}'
+                            : 'From Date',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: _rentalDurationFrom != null 
+                              ? theme.colorScheme.onSurface 
+                              : theme.colorScheme.onSurface.withOpacity(0.5),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: InkWell(
+                onTap: () async {
+                  final date = await showDatePicker(
+                    context: context,
+                    initialDate: _rentalDurationTo ?? (_rentalDurationFrom ?? DateTime.now().add(const Duration(days: 30))),
+                    firstDate: _rentalDurationFrom ?? DateTime.now(),
+                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                  );
+                  if (date != null) {
+                    setState(() {
+                      _rentalDurationTo = date;
+                    });
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: theme.colorScheme.outline),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.calendar_today_outlined, color: theme.colorScheme.primary),
+                      const SizedBox(width: 12),
+                      Text(
+                        _rentalDurationTo != null 
+                            ? '${_rentalDurationTo!.day}/${_rentalDurationTo!.month}/${_rentalDurationTo!.year}'
+                            : 'To Date',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: _rentalDurationTo != null 
+                              ? theme.colorScheme.onSurface 
+                              : theme.colorScheme.onSurface.withOpacity(0.5),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -712,27 +1020,39 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
             Row(
               children: [
                 Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _isGettingCurrentLocation ? null : _getCurrentLocation,
-                    icon: _isGettingCurrentLocation 
-                        ? SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: theme.colorScheme.primary,
-                            ),
-                          )
-                        : const Icon(Icons.my_location_outlined),
-                    label: Text(_isGettingCurrentLocation ? 'Getting Location...' : 'Use Current Location'),
+                  child: SizedBox(
+                    height: 56, // Increased button height
+                    child: OutlinedButton.icon(
+                      onPressed: _isGettingCurrentLocation ? null : _getCurrentLocation,
+                      icon: _isGettingCurrentLocation 
+                          ? SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: theme.colorScheme.primary,
+                              ),
+                            )
+                          : const Icon(Icons.my_location_outlined, size: 24), // Increased icon size
+                      label: Text(
+                        _isGettingCurrentLocation ? 'Getting Location...' : 'Use Current Location',
+                        style: theme.textTheme.labelLarge, // Larger text
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: FilledButton.icon(
-                    onPressed: _pickLocation,
-                    icon: const Icon(Icons.map_outlined),
-                    label: const Text('Pick on Map'),
+                  child: SizedBox(
+                    height: 56, // Increased button height
+                    child: FilledButton.icon(
+                      onPressed: _pickLocation,
+                      icon: const Icon(Icons.map_outlined, size: 24), // Increased icon size
+                      label: Text(
+                        'Pick on Map',
+                        style: theme.textTheme.labelLarge, // Larger text
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -740,6 +1060,45 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildFacilityCheckbox(
+    String title,
+    String subtitle,
+    IconData icon,
+    bool value,
+    ValueChanged<bool?> onChanged,
+  ) {
+    final theme = Theme.of(context);
+    
+    return Row(
+      children: [
+        Checkbox(
+          value: value,
+          onChanged: onChanged,
+        ),
+        const SizedBox(width: 8),
+        Icon(icon, color: theme.colorScheme.primary),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: theme.textTheme.titleMedium,
+              ),
+              Text(
+                subtitle,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurface.withOpacity(0.7),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -796,7 +1155,7 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'File selected: ${currentPath.split('/').last}',
+                        'File uploaded: ${currentPath.split('/').last}',
                         style: TextStyle(
                           color: theme.colorScheme.secondary,
                           fontWeight: FontWeight.w500,
@@ -818,48 +1177,6 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
               ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildFacilityCheckbox(
-    String title,
-    String subtitle,
-    IconData icon,
-    bool value,
-    Function(bool?) onChanged,
-  ) {
-    final theme = Theme.of(context);
-    
-    return Card(
-      color: value ? theme.colorScheme.primary.withOpacity(0.05) : null,
-      child: CheckboxListTile(
-        value: value,
-        onChanged: onChanged,
-        title: Row(
-          children: [
-            Icon(
-              icon,
-              color: value ? theme.colorScheme.primary : theme.colorScheme.onSurface.withOpacity(0.6),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              title,
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: value ? theme.colorScheme.primary : theme.colorScheme.onSurface,
-              ),
-            ),
-          ],
-        ),
-        subtitle: Text(
-          subtitle,
-          style: TextStyle(
-            color: theme.colorScheme.onSurface.withOpacity(0.7),
-          ),
-        ),
-        activeColor: theme.colorScheme.primary,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
   }
@@ -924,29 +1241,44 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
       );
 
       // Get address from coordinates
-      final List<Placemark> placemarks = await placemarkFromCoordinates(
-        position.latitude,
-        position.longitude,
-      );
+      try {
+        final List<Placemark> placemarks = await placemarkFromCoordinates(
+          position.latitude,
+          position.longitude,
+        );
 
-      final Placemark place = placemarks.first;
-      final String address = [
-        place.street,
-        place.subLocality,
-        place.locality,
-        place.administrativeArea,
-        place.postalCode,
-        place.country,
-      ].where((e) => e != null && e.isNotEmpty).join(', ');
+        if (placemarks.isNotEmpty) {
+          final Placemark place = placemarks.first;
+          final String address = [
+            place.street,
+            place.subLocality,
+            place.locality,
+            place.administrativeArea,
+            place.postalCode,
+            place.country,
+          ].where((e) => e != null && e.isNotEmpty).join(', ');
 
-      setState(() {
-        _latitude = position.latitude;
-        _longitude = position.longitude;
-        _selectedAddress = address;
-        _addressController.text = address;
-      });
+          setState(() {
+            _latitude = position.latitude;
+            _longitude = position.longitude;
+            _selectedAddress = address;
+            _addressController.text = address;
+          });
+        } else {
+          setState(() {
+            _latitude = position.latitude;
+            _longitude = position.longitude;
+          });
+        }
+      } catch (e) {
+        // If geocoding fails, just use coordinates
+        setState(() {
+          _latitude = position.latitude;
+          _longitude = position.longitude;
+        });
+      }
 
-      if (mounted) {
+          if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('Current location set successfully!'),
@@ -1010,7 +1342,38 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
       );
 
       if (result != null && result.files.isNotEmpty) {
-        onPathChanged(result.files.first.path);
+        final file = File(result.files.first.path!);
+        final fileName = result.files.first.name;
+        
+        // Upload to Supabase Storage
+        try {
+          String? uploadedUrl;
+          if (fileName.toLowerCase().contains('image') || fileName.toLowerCase().contains('photo')) {
+            uploadedUrl = await StorageService.uploadFile(
+              file: file,
+              bucket: 'photos',
+              path: 'parking_spaces/${DateTime.now().millisecondsSinceEpoch}_$fileName',
+            );
+          } else {
+            uploadedUrl = await StorageService.uploadFile(
+              file: file,
+              bucket: 'documents',
+              path: 'parking_spaces/${DateTime.now().millisecondsSinceEpoch}_$fileName',
+            );
+          }
+          
+          onPathChanged(uploadedUrl);
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Failed to upload file: $e'),
+                backgroundColor: Theme.of(context).colorScheme.error,
+              ),
+            );
+          }
+          return;
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -1039,6 +1402,26 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
       return;
     }
 
+    if (_availableFrom == null || _availableTo == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Please select available time range'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+      return;
+    }
+
+    if (_rentalDurationFrom == null || _rentalDurationTo == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Please select rental duration dates'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _isSubmitting = true;
     });
@@ -1060,11 +1443,11 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
         'length': double.parse(_lengthController.text),
         'width': double.parse(_widthController.text),
         'height': double.parse(_heightController.text),
-        'available_from': _availableFromController.text,
-        'available_to': _availableToController.text,
+        'available_from': '${_availableFrom!.hour.toString().padLeft(2, '0')}:${_availableFrom!.minute.toString().padLeft(2, '0')}',
+        'available_to': '${_availableTo!.hour.toString().padLeft(2, '0')}:${_availableTo!.minute.toString().padLeft(2, '0')}',
         'rental_mode': _selectedRentalMode,
-        'rental_duration_from': DateTime.now().toIso8601String(),
-        'rental_duration_to': DateTime.now().add(const Duration(days: 30)).toIso8601String(),
+        'rental_duration_from': _rentalDurationFrom!.toIso8601String(),
+        'rental_duration_to': _rentalDurationTo!.toIso8601String(),
         'price_per_unit': int.parse(_priceController.text),
         'has_ev_charging': _hasEvCharging,
         'has_shelter': _hasShelter,
@@ -1074,11 +1457,14 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
         'is_paused': false,
         'total_bookings': 0,
         'current_bookings': 0,
+        'land_proof_url': _landProofPath,
+        'place_image_url': _placeImagePath,
+        'generated_time_slots': _generatedTimeSlots, // Store time slots in database
       };
 
       await ParkingSpaceService.createParkingSpace(spaceData);
 
-      if (mounted) {
+          if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('Parking space created successfully!'),
@@ -1105,5 +1491,3 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
     }
   }
 }
-
-

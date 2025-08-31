@@ -39,7 +39,7 @@ class EnhancedMLService {
         print('📊 Parsed response data: $data');
         
         if (!data.containsKey('best_spots')) {
-          print('⚠️ Response missing "best_spots" key. Available keys: ${data.keys.toList()}');
+          print('⚠ Response missing "best_spots" key. Available keys: ${data.keys.toList()}');
           return [];
         }
         
@@ -124,7 +124,7 @@ class EnhancedMLService {
       print('🔍 Found ${compatibleSpaces.length} dimensionally compatible spaces');
       
       if (compatibleSpaces.isEmpty) {
-        print('⚠️ No dimensionally compatible spaces found');
+        print('⚠ No dimensionally compatible spaces found');
         return [];
       }
 
@@ -148,7 +148,8 @@ class EnhancedMLService {
       
       // Step 4: Merge ML results with database parking spaces
       print('🔄 Step 4: Merging ML results with database spaces...');
-      final enhancedSlots = _mergeMLWithSpaces(compatibleSpaces, mlRecommendations);
+      final enhancedSlots = _mergeMLWithSpaces(compatibleSpaces, mlRecommendations).where((slot) => slot.mlScore > 0.0).toList();
+
       print('🔄 Created ${enhancedSlots.length} enhanced slots');
       
       // Step 5: Sort by ML score (highest first)
@@ -253,7 +254,7 @@ class EnhancedMLService {
       if (mlData != null) {
         print('✅ Successfully matched space ${space.id} with ML recommendation ${mlData.id}');
       } else {
-        print('⚠️ No ML recommendation found for space ${space.id}');
+        print('⚠ No ML recommendation found for space ${space.id}');
       }
       
       return EnhancedParkingSlot.fromParkingSpace(
