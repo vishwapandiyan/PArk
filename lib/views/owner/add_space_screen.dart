@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 import '../../controllers/auth_controller.dart';
 import '../../models/car_model.dart';
 import '../../services/car_service.dart';
 import '../../services/parking_space_service.dart';
+import '../../widgets/google_maps_location_picker.dart';
 
 class AddSpaceScreen extends StatefulWidget {
   const AddSpaceScreen({super.key});
@@ -37,6 +40,7 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
   bool _hasShelter = false;
   bool _hasCctv = false;
   bool _isSubmitting = false;
+  bool _isGettingCurrentLocation = false;
 
   @override
   void dispose() {
@@ -106,7 +110,7 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
                         return 'Please enter an address';
                       }
                       return null;
-                      },
+                    },
                   ),
                   const SizedBox(height: 16),
                   _buildTextFormField(
@@ -620,13 +624,33 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
                 ),
               ),
             const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: _pickLocation,
-                icon: const Icon(Icons.my_location_outlined),
-                label: const Text('Pick Location on Map'),
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _isGettingCurrentLocation ? null : _getCurrentLocation,
+                    icon: _isGettingCurrentLocation 
+                        ? SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: theme.colorScheme.primary,
+                            ),
+                          )
+                        : const Icon(Icons.my_location_outlined),
+                    label: Text(_isGettingCurrentLocation ? 'Getting Location...' : 'Use Current Location'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: _pickLocation,
+                    icon: const Icon(Icons.map_outlined),
+                    label: const Text('Pick on Map'),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -790,14 +814,107 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
     );
   }
 
-  Future<void> _pickLocation() async {
-    // TODO: Implement location picker
-    // For now, just set some dummy coordinates
+  Future<void> _getCurrentLocation() async {
     setState(() {
-      _latitude = 37.7749;
-      _longitude = -122.4194;
-      _selectedAddress = '123 Main St, San Francisco, CA';
+      _isGettingCurrentLocation = true;
     });
+
+    try {
+      // Check location permissions
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          throw Exception('Location permission denied');
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        throw Exception('Location permissions are permanently denied');
+      }
+
+      // Get current position
+      final Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      // Get address from coordinates
+      final List<Placemark> placemarks = await placemarkFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
+
+      final Placemark place = placemarks.first;
+      final String address = [
+        place.street,
+        place.subLocality,
+        place.locality,
+        place.administrativeArea,
+        place.postalCode,
+        place.country,
+      ].where((e) => e != null && e.isNotEmpty).join(', ');
+
+      setState(() {
+        _latitude = position.latitude;
+        _longitude = position.longitude;
+        _selectedAddress = address;
+        _addressController.text = address;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Current location set successfully!'),
+            backgroundColor: Theme.of(context).colorScheme.secondary,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to get current location: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isGettingCurrentLocation = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _pickLocation() async {
+    try {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => GoogleMapsLocationPicker(
+            initialLatitude: _latitude,
+            initialLongitude: _longitude,
+            onLocationSelected: (lat, lng, address) {
+              setState(() {
+                _latitude = lat;
+                _longitude = lng;
+                _selectedAddress = address;
+                _addressController.text = address;
+              });
+            },
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to open location picker: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _pickFile(Function(String?) onPathChanged) async {
@@ -875,32 +992,32 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
 
       await ParkingSpaceService.createParkingSpace(spaceData);
 
-              if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Parking space created successfully!'),
-              backgroundColor: Theme.of(context).colorScheme.secondary,
-            ),
-          );
-          Navigator.of(context).pop(true);
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Failed to create parking space: $e'),
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-          );
-        }
-      } finally {
-        if (mounted) {
-          setState(() {
-            _isSubmitting = false;
-          });
-        }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Parking space created successfully!'),
+            backgroundColor: Theme.of(context).colorScheme.secondary,
+          ),
+        );
+        Navigator.of(context).pop(true);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to create parking space: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
       }
     }
   }
+}
 
 
