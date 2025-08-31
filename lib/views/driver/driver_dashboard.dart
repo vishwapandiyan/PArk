@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../controllers/auth_controller.dart';
+import '../../controllers/booking_controller.dart';
 import '../../widgets/wallet_card.dart';
 import '../../models/wallet_model.dart';
+import '../../models/booking_model.dart';
 import '../../services/wallet_service.dart';
 
 class DriverDashboard extends StatefulWidget {
@@ -16,11 +18,14 @@ class _DriverDashboardState extends State<DriverDashboard> {
   Wallet? _wallet;
   List<Transaction> _recentTransactions = [];
   bool _isLoadingWallet = true;
+  late BookingController _bookingController;
 
   @override
   void initState() {
     super.initState();
+    _bookingController = context.read<BookingController>();
     _loadWalletData();
+    _loadBookings();
   }
 
   Future<void> _loadWalletData() async {
@@ -28,8 +33,10 @@ class _DriverDashboardState extends State<DriverDashboard> {
       final authState = context.read<AuthController>().state;
       if (authState.profile?.id != null) {
         final wallet = await WalletService.getUserWallet(authState.profile!.id);
-        final transactions = await WalletService.getRecentTransactions(authState.profile!.id);
-        
+        final transactions = await WalletService.getRecentTransactions(
+          authState.profile!.id,
+        );
+
         setState(() {
           _wallet = wallet;
           _recentTransactions = transactions;
@@ -49,13 +56,24 @@ class _DriverDashboardState extends State<DriverDashboard> {
     }
   }
 
+  Future<void> _loadBookings() async {
+    try {
+      final authState = context.read<AuthController>().state;
+      if (authState.profile?.id != null) {
+        await _bookingController.fetchForUser(authState.profile!.id);
+      }
+    } catch (e) {
+      print('Error loading bookings: $e');
+    }
+  }
+
   Future<void> _addMoney() async {
     // Show dialog to add test money
     final amount = await showDialog<int>(
       context: context,
       builder: (context) => _AddMoneyDialog(),
     );
-    
+
     if (amount != null && amount > 0) {
       try {
         final authState = context.read<AuthController>().state;
@@ -65,7 +83,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
           'Test money added',
         );
         await _loadWalletData(); // Refresh wallet data
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -100,13 +118,10 @@ class _DriverDashboardState extends State<DriverDashboard> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          'Dashboard',
-          style: theme.textTheme.headlineMedium,
-        ),
+        title: Text('Dashboard', style: theme.textTheme.headlineMedium),
         actions: [
           IconButton(
             onPressed: () async {
@@ -137,10 +152,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
             const SizedBox(height: 32),
 
             // Quick Actions Section
-            Text(
-              'Quick Actions',
-              style: theme.textTheme.headlineSmall,
-            ),
+            Text('Quick Actions', style: theme.textTheme.headlineSmall),
             const SizedBox(height: 16),
 
             // Action Cards Grid
@@ -157,11 +169,11 @@ class _DriverDashboardState extends State<DriverDashboard> {
                 const SizedBox(height: 16),
                 _buildActionCard(
                   context,
-                  title: 'Available Slots',
-                  subtitle: 'Browse all parking options',
-                  icon: Icons.list_outlined,
+                  title: 'Recent Bookings',
+                  subtitle: 'View your parking history',
+                  icon: Icons.history_outlined,
                   color: theme.colorScheme.secondary,
-                  onTap: () => Navigator.of(context).pushNamed('/slots'),
+                  onTap: () => Navigator.of(context).pushNamed('/bookings'),
                 ),
               ],
             ),
@@ -169,10 +181,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
             const SizedBox(height: 32),
 
             // Stats Section
-            Text(
-              'Your Stats',
-              style: theme.textTheme.headlineSmall,
-            ),
+            Text('Your Stats', style: theme.textTheme.headlineSmall),
             const SizedBox(height: 16),
 
             Row(
@@ -181,7 +190,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
                   child: _buildStatCard(
                     context,
                     title: 'Total Bookings',
-                    value: '0',
+                    value: '${_bookingController.state.bookings.length}',
                     icon: Icons.bookmark_outline,
                     color: theme.colorScheme.tertiary,
                   ),
@@ -190,8 +199,9 @@ class _DriverDashboardState extends State<DriverDashboard> {
                 Expanded(
                   child: _buildStatCard(
                     context,
-                    title: 'Saved Spots',
-                    value: '0',
+                    title: 'Active Bookings',
+                    value:
+                        '${_bookingController.state.bookings.where((b) => b.status == BookingStatus.active).length}',
                     icon: Icons.favorite_outline,
                     color: theme.colorScheme.secondary,
                   ),
@@ -201,35 +211,51 @@ class _DriverDashboardState extends State<DriverDashboard> {
 
             const SizedBox(height: 32),
 
-            // Recent Activity
-            Text(
-              'Recent Activity',
-              style: theme.textTheme.headlineSmall,
-            ),
+            // Recent Bookings Section
+            Text('Recent Bookings', style: theme.textTheme.headlineSmall),
             const SizedBox(height: 16),
 
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.history_outlined,
-                      color: theme.colorScheme.onSurface.withOpacity(0.6),
-                      size: 24,
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Text(
-                        'No recent bookings',
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          color: theme.colorScheme.onSurface.withOpacity(0.6),
-                        ),
+            BlocBuilder<BookingController, BookingState>(
+              builder: (context, state) {
+                if (state.isLoading) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (state.bookings.isEmpty) {
+                  return Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.history_outlined,
+                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                            size: 24,
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Text(
+                              'No recent bookings',
+                              style: theme.textTheme.bodyLarge?.copyWith(
+                                color: theme.colorScheme.onSurface.withOpacity(
+                                  0.6,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
-              ),
+                  );
+                }
+
+                return Column(
+                  children: state.bookings
+                      .take(3)
+                      .map((booking) => _buildBookingCard(context, booking))
+                      .toList(),
+                );
+              },
             ),
 
             const SizedBox(height: 32),
@@ -249,10 +275,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
                           size: 24,
                         ),
                         const SizedBox(width: 12),
-                        Text(
-                          'Need Help?',
-                          style: theme.textTheme.titleLarge,
-                        ),
+                        Text('Need Help?', style: theme.textTheme.titleLarge),
                       ],
                     ),
                     const SizedBox(height: 12),
@@ -287,7 +310,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
     required VoidCallback onTap,
   }) {
     final theme = Theme.of(context);
-    
+
     return Card(
       child: InkWell(
         onTap: onTap,
@@ -303,21 +326,14 @@ class _DriverDashboardState extends State<DriverDashboard> {
                   color: color.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: Icon(
-                  icon,
-                  color: color,
-                  size: 28,
-                ),
+                child: Icon(icon, color: color, size: 28),
               ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
-                      style: theme.textTheme.titleMedium,
-                    ),
+                    Text(title, style: theme.textTheme.titleMedium),
                     const SizedBox(height: 4),
                     Text(
                       subtitle,
@@ -348,7 +364,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
     required Color color,
   }) {
     final theme = Theme.of(context);
-    
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -361,18 +377,12 @@ class _DriverDashboardState extends State<DriverDashboard> {
                 color: color.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: Icon(
-                icon,
-                color: color,
-                size: 24,
-              ),
+              child: Icon(icon, color: color, size: 24),
             ),
             const SizedBox(height: 12),
             Text(
               value,
-              style: theme.textTheme.headlineSmall?.copyWith(
-                color: color,
-              ),
+              style: theme.textTheme.headlineSmall?.copyWith(color: color),
             ),
             const SizedBox(height: 4),
             Text(
@@ -381,6 +391,65 @@ class _DriverDashboardState extends State<DriverDashboard> {
                 color: theme.colorScheme.onSurface.withOpacity(0.7),
               ),
               textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBookingCard(BuildContext context, BookingModel booking) {
+    final theme = Theme.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Icon(
+              booking.status == BookingStatus.active
+                  ? Icons.directions_car_outlined
+                  : Icons.history_outlined,
+              color: booking.status == BookingStatus.active
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.onSurface.withOpacity(0.6),
+              size: 28,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Parking Slot', style: theme.textTheme.titleMedium),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Date: ${booking.startTime.toLocal().toString().substring(0, 10)}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurface.withOpacity(0.7),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Price: ₹${booking.price.toStringAsFixed(0)}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurface.withOpacity(0.7),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Status: ${booking.status.name}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: booking.status == BookingStatus.active
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.onSurface.withOpacity(0.7),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios_outlined,
+              color: theme.colorScheme.onSurface.withOpacity(0.4),
+              size: 16,
             ),
           ],
         ),
@@ -401,12 +470,9 @@ class _AddMoneyDialogState extends State<_AddMoneyDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return AlertDialog(
-      title: Text(
-        'Add Test Money',
-        style: theme.textTheme.headlineSmall,
-      ),
+      title: Text('Add Test Money', style: theme.textTheme.headlineSmall),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -476,5 +542,3 @@ class _AddMoneyDialogState extends State<_AddMoneyDialog> {
     );
   }
 }
-
-

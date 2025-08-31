@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_test/flutter_test.dart';
-import 'lib/services/enhanced_ml_service.dart';
 import 'lib/models/ml_request_model.dart';
 
 /// Test class for Enhanced ML Service

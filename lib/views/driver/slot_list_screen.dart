@@ -24,25 +24,36 @@ class _SlotListScreenState extends State<SlotListScreen> {
   }
 
   void _loadArguments() {
-    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-    
+    final args =
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+
     if (args != null) {
       print('🎯 SlotListScreen: Received arguments: ${args.keys.toList()}');
-      print('🎯 SlotListScreen: enhancedSlots type: ${args['enhancedSlots']?.runtimeType}');
-      print('🎯 SlotListScreen: enhancedSlots length: ${args['enhancedSlots']?.length}');
-      
+      print(
+        '🎯 SlotListScreen: enhancedSlots type: ${args['enhancedSlots']?.runtimeType}',
+      );
+      print(
+        '🎯 SlotListScreen: enhancedSlots length: ${args['enhancedSlots']?.length}',
+      );
+
       setState(() {
         // Fix: Use enhancedSlots instead of slots
-        _enhancedSlots = List<EnhancedParkingSlot>.from(args['enhancedSlots'] ?? []);
+        _enhancedSlots = List<EnhancedParkingSlot>.from(
+          args['enhancedSlots'] ?? [],
+        );
         _destination = args['destination'] ?? '';
         _carModel = args['carModel'] ?? '';
         _preferences = Map<String, bool>.from(args['preferences'] ?? {});
       });
-      
+
       // Debug: Print what we received
-      print('🎯 SlotListScreen: Received ${_enhancedSlots.length} enhanced slots');
+      print(
+        '🎯 SlotListScreen: Received ${_enhancedSlots.length} enhanced slots',
+      );
       if (_enhancedSlots.isNotEmpty) {
-        print('   - First slot: ${_enhancedSlots.first.parkingSpace.placeName}');
+        print(
+          '   - First slot: ${_enhancedSlots.first.parkingSpace.placeName}',
+        );
         print('   - ML Score: ${_enhancedSlots.first.mlScore}');
         print('   - Slot ID: ${_enhancedSlots.first.id}');
         print('   - Place Name: ${_enhancedSlots.first.placeName}');
@@ -59,14 +70,14 @@ class _SlotListScreenState extends State<SlotListScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     // Debug: Print current state during build
     print('🎯 SlotListScreen: Building with ${_enhancedSlots.length} slots');
     if (_enhancedSlots.isNotEmpty) {
       print('   - First slot place name: ${_enhancedSlots.first.placeName}');
       print('   - First slot ML score: ${_enhancedSlots.first.mlScore}');
     }
-    
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -81,20 +92,17 @@ class _SlotListScreenState extends State<SlotListScreen> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              theme.colorScheme.background,
-              theme.colorScheme.surface,
-            ],
+            colors: [theme.colorScheme.background, theme.colorScheme.surface],
           ),
         ),
         child: Column(
           children: [
             // Trip Summary Header
             _buildTripSummary(),
-            
+
             // Results Summary
             _buildResultsSummary(),
-            
+
             // Slots List
             Expanded(
               child: _enhancedSlots.isEmpty
@@ -109,79 +117,82 @@ class _SlotListScreenState extends State<SlotListScreen> {
 
   Widget _buildTripSummary() {
     final theme = Theme.of(context);
-    
+
     return Card(
       margin: const EdgeInsets.all(16),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-                          Icon(
-              Icons.navigation_outlined,
-              color: theme.colorScheme.primary,
-              size: 20,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.navigation_outlined,
+                  color: theme.colorScheme.primary,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Trip Details',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 8),
-            Text(
-              'Trip Details',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+            const SizedBox(height: 12),
+
+            Row(
+              children: [
+                Icon(
+                  Icons.place_outlined,
+                  color: theme.colorScheme.error,
+                  size: 16,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _destination,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          
-          Row(
-            children: [
-              Icon(
-                Icons.place_outlined, 
-                color: theme.colorScheme.error, 
-                size: 16,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  _destination,
+
+            const SizedBox(height: 8),
+
+            Row(
+              children: [
+                Icon(
+                  Icons.directions_car_outlined,
+                  color: theme.colorScheme.secondary,
+                  size: 16,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  _carModel,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: 8),
-          
-          Row(
-            children: [
-              Icon(
-                Icons.directions_car_outlined, 
-                color: theme.colorScheme.secondary, 
-                size: 16,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                _carModel,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-          
-          if (_preferences.isNotEmpty) 
-            const SizedBox(height: 12),
-          if (_preferences.isNotEmpty)
-            Wrap(
-              spacing: 8,
-              children: _preferences.entries
-                  .where((entry) => entry.value)
-                  .map((entry) => Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              ],
+            ),
+
+            if (_preferences.isNotEmpty) const SizedBox(height: 12),
+            if (_preferences.isNotEmpty)
+              Wrap(
+                spacing: 8,
+                children: _preferences.entries
+                    .where((entry) => entry.value)
+                    .map(
+                      (entry) => Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: theme.colorScheme.primary.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
@@ -207,10 +218,11 @@ class _SlotListScreenState extends State<SlotListScreen> {
                             ),
                           ],
                         ),
-                      ))
-                  .toList(),
-            ),
-        ],
+                      ),
+                    )
+                    .toList(),
+              ),
+          ],
         ),
       ),
     );
@@ -218,7 +230,7 @@ class _SlotListScreenState extends State<SlotListScreen> {
 
   Widget _buildResultsSummary() {
     final theme = Theme.of(context);
-    
+
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       padding: const EdgeInsets.all(16),
@@ -262,7 +274,7 @@ class _SlotListScreenState extends State<SlotListScreen> {
 
   Widget _buildEmptyState() {
     final theme = Theme.of(context);
-    
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -302,33 +314,44 @@ class _SlotListScreenState extends State<SlotListScreen> {
     );
   }
 
-      ParkingSlotModel _convertToParkingSlotModel(EnhancedParkingSlot enhancedSlot) {
+  ParkingSlotModel _convertToParkingSlotModel(
+    EnhancedParkingSlot enhancedSlot,
+  ) {
     print('🔄 Converting EnhancedParkingSlot to ParkingSlotModel...');
     print('🔄 EnhancedSlot ID: ${enhancedSlot.id}');
     print('�� EnhancedSlot placeName: ${enhancedSlot.placeName}');
     print('🔄 EnhancedSlot parkingSpace ID: ${enhancedSlot.parkingSpace.id}');
-    
+
     try {
       // Safe property access with extensive fallbacks
-      final address = enhancedSlot.placeName ?? 
-                     enhancedSlot.parkingSpace.placeName ?? 
-                     enhancedSlot.parkingSpace.address ??
-                     'Address not available';
-      
+      final address =
+          enhancedSlot.placeName ??
+          enhancedSlot.parkingSpace.placeName ??
+          enhancedSlot.parkingSpace.address ??
+          'Address not available';
+
       final timeFrom = enhancedSlot.parkingSpace.availableFrom ?? '09:00';
       final timeTo = enhancedSlot.parkingSpace.availableTo ?? '18:00';
-      
+
       final hourlyPrice = enhancedSlot.getCurrentPrice('hourly');
-      
-      print('🔄 Conversion successful - Address: $address, Price: $hourlyPrice');
-      
+
+      print(
+        '🔄 Conversion successful - Address: $address, Price: $hourlyPrice',
+      );
+      print(
+        '🔄 Using parking space ID: ${enhancedSlot.parkingSpace.id} for time slot lookup',
+      );
+
       return ParkingSlotModel(
-        id: enhancedSlot.id,
+        id: enhancedSlot
+            .parkingSpace
+            .id, // Use parking space ID to fetch time slots
         ownerId: enhancedSlot.parkingSpace.ownerId,
         address: address,
         latitude: enhancedSlot.latitude,
         longitude: enhancedSlot.longitude,
-        dimensions: '${enhancedSlot.length}m × ${enhancedSlot.width}m × ${enhancedSlot.height}m',
+        dimensions:
+            '${enhancedSlot.length}m × ${enhancedSlot.width}m × ${enhancedSlot.height}m',
         photos: [], // Empty list as default
         pricing: {
           'hourly': hourlyPrice,
@@ -350,10 +373,12 @@ class _SlotListScreenState extends State<SlotListScreen> {
       print('❌ EnhancedSlot ID: ${enhancedSlot.id}');
       print('❌ EnhancedSlot placeName: ${enhancedSlot.placeName}');
       print('❌ EnhancedSlot parkingSpace ID: ${enhancedSlot.parkingSpace.id}');
-      
+
       // Fallback with safe defaults
       return ParkingSlotModel(
-        id: enhancedSlot.id,
+        id: enhancedSlot
+            .parkingSpace
+            .id, // Use parking space ID to fetch time slots
         ownerId: enhancedSlot.parkingSpace.ownerId,
         address: 'Address not available',
         latitude: enhancedSlot.latitude,
@@ -373,7 +398,6 @@ class _SlotListScreenState extends State<SlotListScreen> {
     }
   }
 
-
   Widget _buildSlotsList() {
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -385,16 +409,15 @@ class _SlotListScreenState extends State<SlotListScreen> {
           child: SlotCard(
             slot: slot,
             onTap: () {
-             print('🎯 View Details clicked for slot: ${slot.id}');
+              print('🎯 View Details clicked for slot: ${slot.id}');
               final convertedSlot = _convertToParkingSlotModel(slot);
               print('🎯 Converted slot type: ${convertedSlot.runtimeType}');
               print('�� Converted slot ID: ${convertedSlot.id}');
               print('🎯 Converted slot address: ${convertedSlot.address}');
-              
-              Navigator.of(context).pushNamed(
-                '/slot_detail',
-                arguments: convertedSlot,
-              );
+
+              Navigator.of(
+                context,
+              ).pushNamed('/slot_detail', arguments: convertedSlot);
             },
           ),
         );
@@ -428,5 +451,3 @@ class _SlotListScreenState extends State<SlotListScreen> {
     }
   }
 }
-
-

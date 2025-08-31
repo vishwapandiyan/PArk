@@ -23,7 +23,8 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AppSupabase.initialize(
     url: 'https://snuvppospaekzqsrtqfe.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNudXZwcG9zcGFla3pxc3J0cWZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY0Nzk1NzMsImV4cCI6MjA3MjA1NTU3M30.r0Dz5hQfpjVVfRWv2V_VoTy6PF6HYBiqkhenK23wRVU',
+    anonKey:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNudXZwcG9zcGFla3pxc3J0cWZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY0Nzk1NzMsImV4cCI6MjA3MjA1NTU3M30.r0Dz5hQfpjVVfRWv2V_VoTy6PF6HYBiqkhenK23wRVU',
   );
   runApp(const MyApp());
 }
@@ -58,7 +59,10 @@ class MyApp extends StatelessWidget {
           '/ar_view': (_) => const ARViewScreen(),
           // Owner
           '/owner_dashboard': (_) => const OwnerDashboard(),
-          '/manage_space': (_) => const ManageSpaceScreen(),
+          '/manage_space': (_) {
+            print('Route /manage_space accessed');
+            return const ManageSpaceScreen();
+          },
           '/add_space': (_) => const AddSpaceScreen(),
           '/analytics': (_) => const AnalyticsScreen(),
         },
@@ -77,9 +81,7 @@ class AuthWrapper extends StatelessWidget {
         // Show loading while checking auth state
         if (state.isLoading) {
           return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(),
-            ),
+            body: Center(child: CircularProgressIndicator()),
           );
         }
 
@@ -93,7 +95,7 @@ class AuthWrapper extends StatelessWidget {
               return const OwnerDashboard();
             }
           }
-          
+
           // If there's an error loading profile, show error and logout option
           if (state.errorMessage != null) {
             return Scaffold(
@@ -111,9 +113,8 @@ class AuthWrapper extends StatelessWidget {
                       const SizedBox(height: 16),
                       Text(
                         'Profile Loading Failed',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(fontWeight: FontWeight.bold),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 8),
@@ -125,9 +126,9 @@ class AuthWrapper extends StatelessWidget {
                       const SizedBox(height: 16),
                       Text(
                         'Error: ${state.errorMessage}',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.red,
-                        ),
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodySmall?.copyWith(color: Colors.red),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 32),
@@ -154,12 +155,12 @@ class AuthWrapper extends StatelessWidget {
               ),
             );
           }
-          
+
           // If profile is not loaded yet and no error, try to load it
           WidgetsBinding.instance.addPostFrameCallback((_) {
             context.read<AuthController>().loadProfile();
           });
-          
+
           // Show loading while profile is being loaded
           return const Scaffold(
             body: Center(
