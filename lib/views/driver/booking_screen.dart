@@ -4,10 +4,7 @@ import '../../controllers/auth_controller.dart';
 import '../../controllers/slot_controller.dart';
 
 import '../../models/car_model.dart';
-import '../../models/ml_request_model.dart';
-
 import '../../services/car_service.dart';
-import '../../services/enhanced_ml_service.dart';
 
 import '../../widgets/destination_maps_picker.dart';
 
@@ -40,7 +37,6 @@ class _BookingScreenState extends State<BookingScreen> {
   
   // Max price
   final _maxPriceCtrl = TextEditingController(text: '150');
-  int _maxPrice = 150;
 
   @override
   void initState() {
@@ -88,7 +84,7 @@ class _BookingScreenState extends State<BookingScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to load car models: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
       }
@@ -119,9 +115,9 @@ class _BookingScreenState extends State<BookingScreen> {
 
     if (_destinationLat == null || _destinationLng == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select a destination first'),
-          backgroundColor: Colors.orange,
+        SnackBar(
+          content: const Text('Please select a destination first'),
+          backgroundColor: Theme.of(context).colorScheme.tertiary,
         ),
       );
       return;
@@ -129,9 +125,9 @@ class _BookingScreenState extends State<BookingScreen> {
 
     if (_selectedCarModel == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select your car model'),
-          backgroundColor: Colors.orange,
+        SnackBar(
+          content: const Text('Please select your car model'),
+          backgroundColor: Theme.of(context).colorScheme.tertiary,
         ),
       );
       return;
@@ -184,7 +180,7 @@ class _BookingScreenState extends State<BookingScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error finding parking spaces: $e'),
-          backgroundColor: Colors.red,
+          backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );
     } finally {
@@ -194,12 +190,16 @@ class _BookingScreenState extends State<BookingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Book Parking'),
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 0,
+        title: Text(
+          'Book Parking',
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       ),
       body: Container(
         decoration: BoxDecoration(
@@ -207,8 +207,8 @@ class _BookingScreenState extends State<BookingScreen> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Theme.of(context).primaryColor.withOpacity(0.1),
-              Colors.white,
+              theme.colorScheme.background,
+              theme.colorScheme.surface,
             ],
           ),
         ),
@@ -237,43 +237,41 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   Widget _buildHeaderCard() {
+    final theme = Theme.of(context);
+    
     return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(15),
-      ),
       child: Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(15),
+          borderRadius: BorderRadius.circular(20),
           gradient: LinearGradient(
             colors: [
-              Theme.of(context).primaryColor.withOpacity(0.8),
-              Theme.of(context).primaryColor,
+              theme.colorScheme.primary.withOpacity(0.8),
+              theme.colorScheme.primary,
             ],
           ),
         ),
         child: Column(
           children: [
             Icon(
-              Icons.local_parking,
+              Icons.local_parking_outlined,
               size: 48,
-              color: Colors.white,
+              color: theme.colorScheme.onPrimary,
             ),
             const SizedBox(height: 16),
             Text(
               'Find Your Perfect Parking Spot',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
+              style: theme.textTheme.headlineMedium?.copyWith(
+                color: theme.colorScheme.onPrimary,
+                fontWeight: FontWeight.w600,
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
               'Search for parking spaces that match your preferences',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.white.withOpacity(0.9),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onPrimary.withOpacity(0.9),
               ),
               textAlign: TextAlign.center,
             ),
@@ -284,11 +282,9 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   Widget _buildDestinationCard() {
+    final theme = Theme.of(context);
+    
     return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -297,14 +293,14 @@ class _BookingScreenState extends State<BookingScreen> {
             Row(
               children: [
                 Icon(
-                  Icons.navigation,
-                  color: Theme.of(context).primaryColor,
+                  Icons.navigation_outlined,
+                  color: theme.colorScheme.primary,
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  '📍 Destination',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
+                  'Destination',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -315,9 +311,9 @@ class _BookingScreenState extends State<BookingScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
+                  color: theme.colorScheme.secondary.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.green.withOpacity(0.3)),
+                  border: Border.all(color: theme.colorScheme.secondary.withOpacity(0.3)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -325,16 +321,16 @@ class _BookingScreenState extends State<BookingScreen> {
                     Row(
                       children: [
                         Icon(
-                          Icons.check_circle,
-                          color: Colors.green[700],
+                          Icons.check_circle_outlined,
+                          color: theme.colorScheme.secondary,
                           size: 20,
                         ),
                         const SizedBox(width: 8),
                         Text(
                           'Selected Destination',
-                          style: TextStyle(
-                            color: Colors.green[700],
-                            fontWeight: FontWeight.bold,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.secondary,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],
@@ -342,8 +338,8 @@ class _BookingScreenState extends State<BookingScreen> {
                     const SizedBox(height: 8),
                     Text(
                       _destinationAddress,
-                      style: TextStyle(
-                        color: Colors.green[700],
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.secondary,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -355,18 +351,24 @@ class _BookingScreenState extends State<BookingScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.1),
+                  color: theme.colorScheme.tertiary.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                  border: Border.all(color: theme.colorScheme.tertiary.withOpacity(0.3)),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Icon(Icons.warning, color: Colors.orange, size: 20),
-                    SizedBox(width: 8),
+                    Icon(
+                      Icons.warning_outlined, 
+                      color: theme.colorScheme.tertiary, 
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Please select your destination',
-                        style: TextStyle(color: Colors.orange),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.tertiary,
+                        ),
                       ),
                     ),
                   ],
@@ -377,20 +379,12 @@ class _BookingScreenState extends State<BookingScreen> {
             
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton.icon(
+              child: FilledButton.icon(
                 onPressed: _pickDestination,
-                icon: const Icon(Icons.map),
+                icon: const Icon(Icons.map_outlined),
                 label: Text(_destinationAddress.isEmpty 
                     ? 'Pick Destination on Map' 
                     : 'Change Destination'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).primaryColor,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
               ),
             ),
           ],
@@ -400,29 +394,26 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   Widget _buildCarModelCard() {
+    final theme = Theme.of(context);
+    
     return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
       child: Padding(
-        padding: const EdgeInsets.all(16), // Reduced from 20
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 Icon(
-                  Icons.directions_car,
-                  color: Theme.of(context).primaryColor,
-                  size: 18, // Reduced icon size
+                  Icons.directions_car_outlined,
+                  color: theme.colorScheme.primary,
+                  size: 18,
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  '🚗 Vehicle Information',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith( // Changed from titleLarge
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15, // Explicit smaller size
+                  'Vehicle Information',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -431,11 +422,11 @@ class _BookingScreenState extends State<BookingScreen> {
             
             if (_selectedCarModel != null) ...[
               Container(
-                padding: const EdgeInsets.all(12), // Reduced from 16
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.1),
+                  color: theme.colorScheme.primary.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                  border: Border.all(color: theme.colorScheme.primary.withOpacity(0.3)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -443,17 +434,16 @@ class _BookingScreenState extends State<BookingScreen> {
                     Row(
                       children: [
                         Icon(
-                          Icons.check_circle,
-                          color: Colors.blue[700],
-                          size: 16, // Reduced icon size
+                          Icons.check_circle_outlined,
+                          color: theme.colorScheme.primary,
+                          size: 16,
                         ),
-                        const SizedBox(width: 6), // Reduced spacing
+                        const SizedBox(width: 6),
                         Text(
                           'Selected Car Model',
-                          style: TextStyle(
-                            color: Colors.blue[700],
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12, // Reduced font size
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.primary,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                         if (_selectedCarModel == _userDefaultCarModel) ...[
@@ -461,16 +451,16 @@ class _BookingScreenState extends State<BookingScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                             decoration: BoxDecoration(
-                              color: Colors.green.withOpacity(0.1),
+                              color: theme.colorScheme.secondary.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.green),
+                              border: Border.all(color: theme.colorScheme.secondary),
                             ),
-                            child: const Text(
+                            child: Text(
                               'DEFAULT',
-                              style: TextStyle(
-                                color: Colors.green,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 8, // Reduced badge size
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.secondary,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 8,
                               ),
                             ),
                           ),
@@ -480,18 +470,16 @@ class _BookingScreenState extends State<BookingScreen> {
                     const SizedBox(height: 6), // Reduced spacing
                     Text(
                       _selectedCarModel!.displayName,
-                      style: TextStyle(
-                        color: Colors.blue[700],
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13, // Reduced font size
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       'Dimensions: ${_selectedCarModel!.dimensions}',
-                      style: TextStyle(
-                        color: Colors.blue[600],
-                        fontSize: 10, // Reduced font size
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.primary.withOpacity(0.8),
                         fontFamily: 'monospace',
                       ),
                     ),
@@ -501,22 +489,25 @@ class _BookingScreenState extends State<BookingScreen> {
               const SizedBox(height: 10), // Reduced spacing
             ] else
               Container(
-                padding: const EdgeInsets.all(12), // Reduced padding
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.1),
+                  color: theme.colorScheme.tertiary.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                  border: Border.all(color: theme.colorScheme.tertiary.withOpacity(0.3)),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.warning, color: Colors.orange, size: 16), // Reduced icon
+                    Icon(
+                      Icons.warning_outlined, 
+                      color: theme.colorScheme.tertiary, 
+                      size: 16,
+                    ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         'Please select your car model',
-                        style: TextStyle(
-                          color: Colors.orange,
-                          fontSize: 12, // Reduced font size
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.tertiary,
                         ),
                       ),
                     ),
@@ -539,32 +530,22 @@ class _BookingScreenState extends State<BookingScreen> {
                 value: _selectedCarModel,
                 decoration: InputDecoration(
                   labelText: 'Car Model',
-                  labelStyle: const TextStyle(fontSize: 12), // Smaller label
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: Theme.of(context).primaryColor),
-                  ),
-                  prefixIcon: const Icon(Icons.directions_car, size: 16), // Smaller icon
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8), // Compact padding
-                  isDense: true, // Make field more compact
+                  prefixIcon: const Icon(Icons.directions_car_outlined, size: 16),
                 ),
-                hint: const Text(
+                hint: Text(
                   'Select your car model',
-                  style: TextStyle(fontSize: 12), // Smaller hint
+                  style: theme.textTheme.bodySmall,
                 ),
                 isDense: true,
                 isExpanded: true,
-                menuMaxHeight: 180, // Reduced height to prevent overflow
-                style: const TextStyle(fontSize: 12, color: Colors.black87), // Smaller text
-                itemHeight: null, // Allow variable item heights
+                menuMaxHeight: 180,
+                style: theme.textTheme.bodyMedium,
+                itemHeight: null,
                 items: _availableCarModels.map((carModel) {
                   return DropdownMenuItem<CarModel>(
                     value: carModel,
                     child: Container(
-                      constraints: const BoxConstraints(maxHeight: 28), // Limit item height
+                      constraints: const BoxConstraints(maxHeight: 28),
                       padding: const EdgeInsets.symmetric(vertical: 1),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -572,19 +553,18 @@ class _BookingScreenState extends State<BookingScreen> {
                         children: [
                           Text(
                             carModel.displayName,
-                            style: const TextStyle(
+                            style: theme.textTheme.bodySmall?.copyWith(
                               fontWeight: FontWeight.w500,
-                              fontSize: 11, // Smaller font
                             ),
                             overflow: TextOverflow.ellipsis,
                             maxLines: 1,
                           ),
                           Text(
                             carModel.dimensions,
-                            style: TextStyle(
-                              fontSize: 8, // Much smaller font for dimensions
-                              color: Colors.grey[600],
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurface.withOpacity(0.6),
                               fontFamily: 'monospace',
+                              fontSize: 8,
                             ),
                             overflow: TextOverflow.ellipsis,
                             maxLines: 1,
@@ -613,11 +593,9 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   Widget _buildPreferencesCard() {
+    final theme = Theme.of(context);
+    
     return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -626,14 +604,14 @@ class _BookingScreenState extends State<BookingScreen> {
             Row(
               children: [
                 Icon(
-                  Icons.tune,
-                  color: Theme.of(context).primaryColor,
+                  Icons.tune_outlined,
+                  color: theme.colorScheme.primary,
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  '⚙️ Preferences',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
+                  'Preferences',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -642,8 +620,8 @@ class _BookingScreenState extends State<BookingScreen> {
             
             Text(
               'Select your preferred amenities:',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.grey[600],
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withOpacity(0.7),
               ),
             ),
             const SizedBox(height: 12),
@@ -651,21 +629,21 @@ class _BookingScreenState extends State<BookingScreen> {
             _buildPreferenceCheckbox(
               title: 'Shelter',
               subtitle: 'Covered parking space',
-              icon: Icons.roofing,
+              icon: Icons.roofing_outlined,
               value: _needShelter,
               onChanged: (value) => setState(() => _needShelter = value ?? false),
             ),
             _buildPreferenceCheckbox(
               title: 'CCTV Surveillance',
               subtitle: '24/7 security monitoring',
-              icon: Icons.security,
+              icon: Icons.security_outlined,
               value: _needCCTV,
               onChanged: (value) => setState(() => _needCCTV = value ?? false),
             ),
             _buildPreferenceCheckbox(
               title: 'EV Charging',
               subtitle: 'Electric vehicle charging station',
-              icon: Icons.electric_car,
+              icon: Icons.electric_car_outlined,
               value: _needEVCharging,
               onChanged: (value) => setState(() => _needEVCharging = value ?? false),
             ),
@@ -682,82 +660,75 @@ class _BookingScreenState extends State<BookingScreen> {
     required bool value,
     required ValueChanged<bool?> onChanged,
   }) {
+    final theme = Theme.of(context);
+    
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: value ? Theme.of(context).primaryColor : Colors.grey.shade300,
+          color: value ? theme.colorScheme.primary : theme.colorScheme.outline,
         ),
-        color: value ? Theme.of(context).primaryColor.withOpacity(0.05) : null,
+        color: value ? theme.colorScheme.primary.withOpacity(0.05) : null,
       ),
       child: CheckboxListTile(
         title: Text(
           title,
-          style: TextStyle(
+          style: theme.textTheme.bodyMedium?.copyWith(
             fontWeight: FontWeight.w600,
-            color: value ? Theme.of(context).primaryColor : null,
+            color: value ? theme.colorScheme.primary : theme.colorScheme.onSurface,
           ),
         ),
         subtitle: Text(
           subtitle,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[600],
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurface.withOpacity(0.6),
           ),
         ),
         secondary: Icon(
           icon,
-          color: value ? Theme.of(context).primaryColor : Colors.grey,
+          color: value ? theme.colorScheme.primary : theme.colorScheme.onSurface.withOpacity(0.6),
         ),
         value: value,
         onChanged: onChanged,
-        activeColor: Theme.of(context).primaryColor,
+        activeColor: theme.colorScheme.primary,
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       ),
     );
   }
 
   Widget _buildFindParkingButton() {
+    final theme = Theme.of(context);
+    
     return SizedBox(
       width: double.infinity,
-      child: ElevatedButton(
+      child: FilledButton(
         onPressed: _isLoading ? null : _findParkingSpaces,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Theme.of(context).primaryColor,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          elevation: 3,
-        ),
         child: _isLoading
-            ? const Row(
+            ? Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   SizedBox(
                     width: 20,
                     height: 20,
                     child: CircularProgressIndicator(
-                      color: Colors.white,
+                      color: theme.colorScheme.onPrimary,
                       strokeWidth: 2,
                     ),
                   ),
-                  SizedBox(width: 12),
-                  Text('Searching...'),
+                  const SizedBox(width: 12),
+                  const Text('Searching...'),
                 ],
               )
             : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.search),
+                  const Icon(Icons.search_outlined),
                   const SizedBox(width: 8),
                   Text(
                     'Find Parking Spaces',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],

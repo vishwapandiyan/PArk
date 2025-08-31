@@ -92,18 +92,19 @@ class _GoogleMapsLocationPickerState extends State<GoogleMapsLocationPicker>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: const Text('Pick Location'),
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 0,
+        title: Text(
+          'Pick Location',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
         systemOverlayStyle: SystemUiOverlayStyle.light,
         actions: [
           if (_selectedLocation != null)
             IconButton(
               onPressed: _confirmLocation,
-              icon: const Icon(Icons.check_circle),
+              icon: const Icon(Icons.check_circle_outlined),
               tooltip: 'Confirm Location',
             ),
         ],
@@ -115,7 +116,7 @@ class _GoogleMapsLocationPickerState extends State<GoogleMapsLocationPicker>
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor,
+              color: Theme.of(context).colorScheme.primary,
               borderRadius: const BorderRadius.only(
                 bottomLeft: Radius.circular(20),
                 bottomRight: Radius.circular(20),

@@ -1,10 +1,22 @@
 import 'package:flutter/material.dart';
+import 'app_theme_dark.dart';
+import 'color_scheme.dart';
 
+/// Main theme class for the parking app
+/// Provides both light and dark themes with consistent branding
 class AppTheme {
-  static const Color primaryBlue = Color(0xFF2196F3);
-  static const Color secondaryGreen = Color(0xFF4CAF50);
-  static const Color accentOrange = Color(0xFFFF9800);
+  // Brand colors for reference (actual colors defined in color_scheme.dart)
+  static const Color primaryBlue = AppColors.primaryBlue;
+  static const Color secondaryGreen = AppColors.secondaryGreen;
+  static const Color accentOrange = AppColors.accentOrange;
 
+  /// Returns the dark theme (primary theme for the app)
+  static ThemeData darkTheme() {
+    return AppThemeDark.create();
+  }
+
+  /// Returns a light theme (fallback/alternative)
+  /// Note: The app is designed primarily for dark theme
   static ThemeData lightTheme() {
     final base = ThemeData.light(useMaterial3: true);
     return base.copyWith(
@@ -29,18 +41,21 @@ class AppTheme {
           backgroundColor: primaryBlue,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
           ),
+          minimumSize: const Size(0, 48),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
         ),
+        filled: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
       cardTheme: CardThemeData(
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
         ),
         elevation: 2,
       ),

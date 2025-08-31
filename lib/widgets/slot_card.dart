@@ -13,6 +13,8 @@ class SlotCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
     // Handle both ParkingSlotModel and Map<String, dynamic>
     final address = slot is ParkingSlotModel ? slot.address : slot['address'];
     final pricing = slot is ParkingSlotModel ? slot.pricing : slot['pricing'];
@@ -24,10 +26,6 @@ class SlotCard extends StatelessWidget {
     final hasEVCharging = slot is ParkingSlotModel ? slot.hasEVCharging : slot['has_ev_charging'];
 
     return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
@@ -45,18 +43,18 @@ class SlotCard extends StatelessWidget {
                       children: [
                         Text(
                           address ?? 'Address not available',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: theme.colorScheme.onSurface,
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '📏 ${dimensions ?? 'Dimensions not available'}',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.grey[600],
+                          '${dimensions ?? 'Dimensions not available'}',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurface.withOpacity(0.6),
                           ),
                         ),
                       ],
@@ -65,15 +63,14 @@ class SlotCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).primaryColor,
+                      color: theme.colorScheme.primary,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
                       '\$${pricing?.toString() ?? 'N/A'}/hr',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: theme.colorScheme.onPrimary,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
@@ -86,22 +83,22 @@ class SlotCard extends StatelessWidget {
               Row(
                 children: [
                   Icon(
-                    Icons.star,
-                    color: Colors.amber[600],
+                    Icons.star_outlined,
+                    color: theme.colorScheme.tertiary,
                     size: 20,
                   ),
                   const SizedBox(width: 4),
                   Text(
                     '${rating?.toStringAsFixed(1) ?? 'N/A'}',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(width: 4),
                   Text(
                     '(${reviewCount ?? 0} reviews)',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.grey[600],
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurface.withOpacity(0.6),
                     ),
                   ),
                 ],
@@ -117,23 +114,23 @@ class SlotCard extends StatelessWidget {
                   if (hasShelter == true)
                     _buildAmenityChip(
                       context,
-                      '🏠 Shelter',
-                      Colors.blue[100]!,
-                      Colors.blue[700]!,
+                      'Shelter',
+                      Icons.roofing_outlined,
+                      theme.colorScheme.primary,
                     ),
                   if (hasCCTV == true)
                     _buildAmenityChip(
                       context,
-                      '📹 CCTV',
-                      Colors.green[100]!,
-                      Colors.green[700]!,
+                      'CCTV',
+                      Icons.security_outlined,
+                      theme.colorScheme.secondary,
                     ),
                   if (hasEVCharging == true)
                     _buildAmenityChip(
                       context,
-                      '🔌 EV Charging',
-                      Colors.orange[100]!,
-                      Colors.orange[700]!,
+                      'EV Charging',
+                      Icons.electric_car_outlined,
+                      theme.colorScheme.tertiary,
                     ),
                 ],
               ),
@@ -143,23 +140,14 @@ class SlotCard extends StatelessWidget {
               // Action button
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton(
+                child: FilledButton(
                   onPressed: onTap,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).primaryColor,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 2,
-                  ),
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
                     child: Text(
                       'View Details',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
@@ -175,23 +163,35 @@ class SlotCard extends StatelessWidget {
   Widget _buildAmenityChip(
     BuildContext context,
     String label,
-    Color backgroundColor,
-    Color textColor,
+    IconData icon,
+    Color color,
   ) {
+    final theme = Theme.of(context);
+    
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: backgroundColor,
+        color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: textColor.withOpacity(0.3)),
+        border: Border.all(color: color.withOpacity(0.3)),
       ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: textColor,
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 14,
+            color: color,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }

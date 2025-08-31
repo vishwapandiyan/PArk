@@ -36,12 +36,16 @@ class _SlotListScreenState extends State<SlotListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Available Parking Spaces'),
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 0,
+        title: Text(
+          'Available Parking Spaces',
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       ),
       body: Container(
         decoration: BoxDecoration(
@@ -49,8 +53,8 @@ class _SlotListScreenState extends State<SlotListScreen> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Theme.of(context).primaryColor.withOpacity(0.1),
-              Colors.white,
+              theme.colorScheme.background,
+              theme.colorScheme.surface,
             ],
           ),
         ),
@@ -75,52 +79,49 @@ class _SlotListScreenState extends State<SlotListScreen> {
   }
 
   Widget _buildTripSummary() {
-    return Container(
+    final theme = Theme.of(context);
+    
+    return Card(
       margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(
-                Icons.navigation,
-                color: Theme.of(context).primaryColor,
-                size: 20,
+                          Icon(
+              Icons.navigation_outlined,
+              color: theme.colorScheme.primary,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Trip Details',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
               ),
-              const SizedBox(width: 8),
-              Text(
-                'Trip Details',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+            ),
             ],
           ),
           const SizedBox(height: 12),
           
           Row(
             children: [
-              const Icon(Icons.place, color: Colors.red, size: 16),
+              Icon(
+                Icons.place_outlined, 
+                color: theme.colorScheme.error, 
+                size: 16,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   _destination,
-                  style: const TextStyle(fontWeight: FontWeight.w500),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
-
             ],
           ),
           
@@ -128,17 +129,24 @@ class _SlotListScreenState extends State<SlotListScreen> {
           
           Row(
             children: [
-              const Icon(Icons.directions_car, color: Colors.green, size: 16),
+              Icon(
+                Icons.directions_car_outlined, 
+                color: theme.colorScheme.secondary, 
+                size: 16,
+              ),
               const SizedBox(width: 8),
               Text(
                 _carModel,
-                style: const TextStyle(fontWeight: FontWeight.w500),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ],
           ),
           
-          if (_preferences.isNotEmpty) ...[
+          if (_preferences.isNotEmpty) 
             const SizedBox(height: 12),
+          if (_preferences.isNotEmpty)
             Wrap(
               spacing: 8,
               children: _preferences.entries
@@ -146,10 +154,10 @@ class _SlotListScreenState extends State<SlotListScreen> {
                   .map((entry) => Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).primaryColor.withOpacity(0.1),
+                          color: theme.colorScheme.primary.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: Theme.of(context).primaryColor.withOpacity(0.3),
+                            color: theme.colorScheme.primary.withOpacity(0.3),
                           ),
                         ),
                         child: Row(
@@ -158,14 +166,13 @@ class _SlotListScreenState extends State<SlotListScreen> {
                             Icon(
                               _getPreferenceIcon(entry.key),
                               size: 14,
-                              color: Theme.of(context).primaryColor,
+                              color: theme.colorScheme.primary,
                             ),
                             const SizedBox(width: 4),
                             Text(
                               _getPreferenceLabel(entry.key),
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Theme.of(context).primaryColor,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.primary,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -174,26 +181,28 @@ class _SlotListScreenState extends State<SlotListScreen> {
                       ))
                   .toList(),
             ),
-          ],
         ],
+        ),
       ),
     );
   }
 
   Widget _buildResultsSummary() {
+    final theme = Theme.of(context);
+    
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.green.withOpacity(0.1),
+        color: theme.colorScheme.secondary.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.green.withOpacity(0.3)),
+        border: Border.all(color: theme.colorScheme.secondary.withOpacity(0.3)),
       ),
       child: Row(
         children: [
           Icon(
-            Icons.check_circle,
-            color: Colors.green[700],
+            Icons.check_circle_outlined,
+            color: theme.colorScheme.secondary,
             size: 24,
           ),
           const SizedBox(width: 12),
@@ -203,15 +212,15 @@ class _SlotListScreenState extends State<SlotListScreen> {
               children: [
                 Text(
                   'Found ${_filteredSlots.length} Available Space${_filteredSlots.length != 1 ? 's' : ''}',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green[700],
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.secondary,
                   ),
                 ),
                 Text(
                   'Spaces matching your preferences',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.green[600],
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.secondary.withOpacity(0.8),
                   ),
                 ),
               ],
@@ -223,6 +232,8 @@ class _SlotListScreenState extends State<SlotListScreen> {
   }
 
   Widget _buildEmptyState() {
+    final theme = Theme.of(context);
+    
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -230,35 +241,31 @@ class _SlotListScreenState extends State<SlotListScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.search_off,
+              Icons.search_off_outlined,
               size: 64,
-              color: Colors.grey[400],
+              color: theme.colorScheme.onSurface.withOpacity(0.4),
             ),
             const SizedBox(height: 16),
             Text(
               'No Matching Spaces Found',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: Colors.grey[600],
-                fontWeight: FontWeight.bold,
+              style: theme.textTheme.titleLarge?.copyWith(
+                color: theme.colorScheme.onSurface.withOpacity(0.7),
+                fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               'Try adjusting your preferences or search in a different area',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.grey[500],
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withOpacity(0.6),
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
-            ElevatedButton.icon(
+            FilledButton.icon(
               onPressed: () => Navigator.of(context).pop(),
-              icon: const Icon(Icons.arrow_back),
+              icon: const Icon(Icons.arrow_back_outlined),
               label: const Text('Back to Search'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).primaryColor,
-                foregroundColor: Colors.white,
-              ),
             ),
           ],
         ),
@@ -291,13 +298,13 @@ class _SlotListScreenState extends State<SlotListScreen> {
   IconData _getPreferenceIcon(String key) {
     switch (key) {
       case 'shelter':
-        return Icons.roofing;
+        return Icons.roofing_outlined;
       case 'cctv':
-        return Icons.security;
+        return Icons.security_outlined;
       case 'evCharging':
-        return Icons.electric_car;
+        return Icons.electric_car_outlined;
       default:
-        return Icons.check;
+        return Icons.check_outlined;
     }
   }
 

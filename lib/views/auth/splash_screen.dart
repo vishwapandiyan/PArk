@@ -41,17 +41,48 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
     return Scaffold(
-      body: Center(
-        child: ScaleTransition(
-          scale: _scaleAnim,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.local_parking, size: 96, color: Colors.blue),
-              const SizedBox(height: 16),
-              Text('Smart Parking', style: Theme.of(context).textTheme.titleLarge),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              theme.colorScheme.background,
+              theme.colorScheme.surface,
             ],
+          ),
+        ),
+        child: Center(
+          child: ScaleTransition(
+            scale: _scaleAnim,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.local_parking_outlined, 
+                  size: 96, 
+                  color: theme.colorScheme.primary,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Smart Parking', 
+                  style: theme.textTheme.displayLarge?.copyWith(
+                    color: theme.colorScheme.onBackground,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Find your perfect parking spot',
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: theme.colorScheme.onBackground.withOpacity(0.7),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

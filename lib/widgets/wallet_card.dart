@@ -19,25 +19,23 @@ class WalletCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
     return Card(
-      elevation: 8,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
       child: Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Theme.of(context).primaryColor,
-              Theme.of(context).primaryColor.withOpacity(0.8),
+              theme.colorScheme.primary,
+              theme.colorScheme.primary.withOpacity(0.8),
             ],
           ),
         ),
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -47,12 +45,12 @@ class WalletCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
+                      color: theme.colorScheme.onPrimary.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                    child: const Icon(
-                      Icons.account_balance_wallet,
-                      color: Colors.white,
+                    child: Icon(
+                      Icons.account_balance_wallet_outlined,
+                      color: theme.colorScheme.onPrimary,
                       size: 28,
                     ),
                   ),
@@ -63,15 +61,14 @@ class WalletCard extends StatelessWidget {
                       children: [
                         Text(
                           'Smart Wallet',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            color: theme.colorScheme.onPrimary,
                           ),
                         ),
                         Text(
                           'Test Currency Balance',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.white.withOpacity(0.8),
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onPrimary.withOpacity(0.8),
                           ),
                         ),
                       ],
@@ -79,9 +76,9 @@ class WalletCard extends StatelessWidget {
                   ),
                   IconButton(
                     onPressed: onViewHistory,
-                    icon: const Icon(
-                      Icons.history,
-                      color: Colors.white,
+                    icon: Icon(
+                      Icons.history_outlined,
+                      color: theme.colorScheme.onPrimary,
                     ),
                   ),
                 ],
@@ -91,23 +88,23 @@ class WalletCard extends StatelessWidget {
 
               // Balance Display
               if (isLoading)
-                const Center(
-                  child: CircularProgressIndicator(color: Colors.white),
+                Center(
+                  child: CircularProgressIndicator(
+                    color: theme.colorScheme.onPrimary,
+                  ),
                 )
               else ...[
                 Text(
                   'Available Balance',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.white.withOpacity(0.8),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: theme.colorScheme.onPrimary.withOpacity(0.8),
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 8),
                 Text(
                   wallet?.formattedBalance ?? '₹0',
-                  style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 36,
+                  style: theme.textTheme.displayLarge?.copyWith(
+                    color: theme.colorScheme.onPrimary,
                   ),
                 ),
               ],
@@ -118,21 +115,14 @@ class WalletCard extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: ElevatedButton.icon(
+                    child: FilledButton.icon(
                       onPressed: onAddMoney,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Theme.of(context).primaryColor,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: theme.colorScheme.onPrimary,
+                        foregroundColor: theme.colorScheme.primary,
                       ),
-                      icon: const Icon(Icons.add, size: 20),
-                      label: const Text(
-                        'Add Money',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
+                      icon: const Icon(Icons.add_outlined, size: 20),
+                      label: const Text('Add Money'),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -140,18 +130,11 @@ class WalletCard extends StatelessWidget {
                     child: OutlinedButton.icon(
                       onPressed: onViewHistory,
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        side: const BorderSide(color: Colors.white),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        foregroundColor: theme.colorScheme.onPrimary,
+                        side: BorderSide(color: theme.colorScheme.onPrimary),
                       ),
-                      icon: const Icon(Icons.receipt_long, size: 20),
-                      label: const Text(
-                        'History',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
+                      icon: const Icon(Icons.receipt_long_outlined, size: 20),
+                      label: const Text('History'),
                     ),
                   ),
                 ],
@@ -160,16 +143,15 @@ class WalletCard extends StatelessWidget {
               // Recent Transactions (if any)
               if (recentTransactions.isNotEmpty) ...[
                 const SizedBox(height: 20),
-                Divider(color: Colors.white.withOpacity(0.3)),
+                Divider(color: theme.colorScheme.onPrimary.withOpacity(0.3)),
                 const SizedBox(height: 12),
                 Text(
                   'Recent Transactions',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: theme.colorScheme.onPrimary,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 ...recentTransactions.take(2).map((transaction) => 
                   _buildTransactionItem(context, transaction)
                 ),
@@ -178,9 +160,8 @@ class WalletCard extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
                       '+${recentTransactions.length - 2} more transactions',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.white.withOpacity(0.7),
-                        fontStyle: FontStyle.italic,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onPrimary.withOpacity(0.7),
                       ),
                     ),
                   ),
@@ -193,19 +174,21 @@ class WalletCard extends StatelessWidget {
   }
 
   Widget _buildTransactionItem(BuildContext context, Transaction transaction) {
+    final theme = Theme.of(context);
+    
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(6),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(8),
+              color: theme.colorScheme.onPrimary.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
-              transaction.isCredit ? Icons.add : Icons.remove,
-              color: Colors.white,
+              transaction.isCredit ? Icons.add_outlined : Icons.remove_outlined,
+              color: theme.colorScheme.onPrimary,
               size: 16,
             ),
           ),
@@ -216,17 +199,17 @@ class WalletCard extends StatelessWidget {
               children: [
                 Text(
                   transaction.description,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w500,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onPrimary,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
+                const SizedBox(height: 2),
                 Text(
                   _formatDate(transaction.createdAt),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.white.withOpacity(0.7),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onPrimary.withOpacity(0.7),
                   ),
                 ),
               ],
@@ -234,9 +217,9 @@ class WalletCard extends StatelessWidget {
           ),
           Text(
             transaction.formattedAmount,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onPrimary,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],

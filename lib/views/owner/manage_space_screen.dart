@@ -3,8 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../controllers/auth_controller.dart';
 import '../../models/parking_space_model.dart';
 import '../../services/parking_space_service.dart';
-import '../../widgets/loading_indicator.dart';
-import '../../models/wallet_model.dart';
 
 class ManageSpaceScreen extends StatefulWidget {
   const ManageSpaceScreen({super.key});
@@ -13,34 +11,18 @@ class ManageSpaceScreen extends StatefulWidget {
   State<ManageSpaceScreen> createState() => _ManageSpaceScreenState();
 }
 
-class _ManageSpaceScreenState extends State<ManageSpaceScreen> with WidgetsBindingObserver {
-  List<ParkingSpace> _parkingSpaces = [];
+class _ManageSpaceScreenState extends State<ManageSpaceScreen> {
+  List<ParkingSpace> _spaces = [];
   bool _isLoading = true;
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    _loadParkingSpaces();
+    _loadSpaces();
   }
 
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
-    // Refresh when app comes back to foreground
-    if (state == AppLifecycleState.resumed) {
-      _loadParkingSpaces();
-    }
-  }
-
-  Future<void> _loadParkingSpaces() async {
+  Future<void> _loadSpaces() async {
     try {
       setState(() {
         _isLoading = true;
@@ -50,9 +32,8 @@ class _ManageSpaceScreenState extends State<ManageSpaceScreen> with WidgetsBindi
       final authState = context.read<AuthController>().state;
       if (authState.profile?.id != null) {
         final spaces = await ParkingSpaceService.getOwnerParkingSpaces(authState.profile!.id);
-        
         setState(() {
-          _parkingSpaces = spaces;
+          _spaces = spaces;
           _isLoading = false;
         });
       }
@@ -64,223 +45,134 @@ class _ManageSpaceScreenState extends State<ManageSpaceScreen> with WidgetsBindi
     }
   }
 
-  Future<void> _deleteSpace(ParkingSpace space) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Delete Parking Space'),
-        content: Text(
-          'Are you sure you want to delete "${space.placeName}"?\n\nThis action cannot be undone.',
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          'Manage Spaces',
+          style: theme.textTheme.headlineMedium,
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Delete'),
+          IconButton(
+            onPressed: () => Navigator.of(context).pushNamed('/add_space'),
+            icon: const Icon(Icons.add_outlined),
+            tooltip: 'Add New Space',
           ),
         ],
       ),
-    );
-
-    if (confirmed == true) {
-      try {
-        await ParkingSpaceService.deleteParkingSpace(space.id);
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Parking space deleted successfully'),
-              backgroundColor: Colors.green,
-            ),
-          );
-          await _loadParkingSpaces(); // Refresh the list
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Failed to delete space: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    }
-  }
-
-  void _viewSpaceDetails(ParkingSpace space) async {
-    final result = await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => SpaceDetailsScreen(space: space),
-      ),
-    );
-    
-    // Refresh list when returning from details screen  
-    // (space details might have been updated)
-    if (result == true || result == null) {
-      await _loadParkingSpaces();
-    }
-  }
-
-  void _addNewSpace() async {
-    // Navigate to add space form
-    final result = await Navigator.of(context).pushNamed('/add_space');
-    
-    // Refresh list if a space was successfully added
-    if (result == true) {
-      await _loadParkingSpaces();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Manage Spaces'),
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Theme.of(context).primaryColor.withOpacity(0.1),
-              Colors.white,
-            ],
-          ),
-        ),
-        child: _buildBody(),
-      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? _buildErrorState()
+              : _spaces.isEmpty
+                  ? _buildEmptyState()
+                  : _buildSpacesList(),
       floatingActionButton: FloatingActionButton(
-        onPressed: _addNewSpace,
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add),
+        onPressed: () => Navigator.of(context).pushNamed('/add_space'),
+        child: const Icon(Icons.add_outlined),
       ),
     );
   }
 
-  Widget _buildBody() {
-    if (_isLoading) {
-      return const Center(child: LoadingIndicator());
-    }
-
-    if (_error != null) {
-      return Center(
+  Widget _buildErrorState() {
+    final theme = Theme.of(context);
+    
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               Icons.error_outline,
               size: 64,
-              color: Colors.grey[400],
+              color: theme.colorScheme.error,
             ),
             const SizedBox(height: 16),
             Text(
               'Failed to load parking spaces',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: Colors.grey[600],
-              ),
+              style: theme.textTheme.headlineSmall,
             ),
             const SizedBox(height: 8),
             Text(
               _error!,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.grey[500],
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withOpacity(0.7),
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: _loadParkingSpaces,
-              icon: const Icon(Icons.refresh),
+            FilledButton.icon(
+              onPressed: _loadSpaces,
+              icon: const Icon(Icons.refresh_outlined),
               label: const Text('Retry'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).primaryColor,
-                foregroundColor: Colors.white,
-              ),
             ),
           ],
         ),
-      );
-    }
+      ),
+    );
+  }
 
-    if (_parkingSpaces.isEmpty) {
-      return Center(
+  Widget _buildEmptyState() {
+    final theme = Theme.of(context);
+    
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.local_parking,
+              Icons.local_parking_outlined,
               size: 96,
-              color: Colors.grey[300],
+              color: theme.colorScheme.onSurface.withOpacity(0.3),
             ),
             const SizedBox(height: 24),
             Text(
               'No Parking Spaces Yet',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[600],
-              ),
+              style: theme.textTheme.headlineSmall,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             Text(
               'Add your first parking space to start\nearning from your property',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: Colors.grey[500],
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: theme.colorScheme.onSurface.withOpacity(0.7),
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
-            ElevatedButton.icon(
-              onPressed: _addNewSpace,
-              icon: const Icon(Icons.add),
+            FilledButton.icon(
+              onPressed: () => Navigator.of(context).pushNamed('/add_space'),
+              icon: const Icon(Icons.add_outlined),
               label: const Text('Add Parking Space'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).primaryColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
             ),
           ],
         ),
-      );
-    }
+      ),
+    );
+  }
 
+  Widget _buildSpacesList() {
     return RefreshIndicator(
-      onRefresh: _loadParkingSpaces,
+      onRefresh: _loadSpaces,
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
-        itemCount: _parkingSpaces.length,
+        itemCount: _spaces.length,
         itemBuilder: (context, index) {
-          final space = _parkingSpaces[index];
-          return _buildSpaceCard(space);
+          return _buildSpaceCard(_spaces[index]);
         },
       ),
     );
   }
 
   Widget _buildSpaceCard(ParkingSpace space) {
+    final theme = Theme.of(context);
+    
     return Card(
-      elevation: 4,
       margin: const EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
       child: Column(
         children: [
           // Space Image (placeholder for now)
@@ -294,8 +186,8 @@ class _ManageSpaceScreenState extends State<ManageSpaceScreen> with WidgetsBindi
               ),
               gradient: LinearGradient(
                 colors: [
-                  Theme.of(context).primaryColor.withOpacity(0.8),
-                  Theme.of(context).primaryColor,
+                  theme.colorScheme.primary.withOpacity(0.8),
+                  theme.colorScheme.primary,
                 ],
               ),
             ),
@@ -328,15 +220,13 @@ class _ManageSpaceScreenState extends State<ManageSpaceScreen> with WidgetsBindi
                         children: [
                           Text(
                             space.placeName,
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                            style: theme.textTheme.titleLarge,
                           ),
                           const SizedBox(height: 4),
                           Text(
                             'Slot: ${space.slotNumber}',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Colors.grey[600],
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurface.withOpacity(0.7),
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -354,7 +244,7 @@ class _ManageSpaceScreenState extends State<ManageSpaceScreen> with WidgetsBindi
                         space.statusText,
                         style: TextStyle(
                           color: _getStatusColor(space),
-                          fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.w600,
                           fontSize: 12,
                         ),
                       ),
@@ -367,13 +257,13 @@ class _ManageSpaceScreenState extends State<ManageSpaceScreen> with WidgetsBindi
                 // Location
                 Row(
                   children: [
-                    Icon(Icons.location_on, color: Colors.grey[600], size: 16),
+                    Icon(Icons.location_on_outlined, color: theme.colorScheme.onSurface.withOpacity(0.6), size: 16),
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
                         space.address,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.grey[600],
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurface.withOpacity(0.7),
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -384,26 +274,15 @@ class _ManageSpaceScreenState extends State<ManageSpaceScreen> with WidgetsBindi
 
                 const SizedBox(height: 8),
 
-                // Stats row
+                // Dimensions
                 Row(
                   children: [
-                    _buildStatChip(
-                      'Total Bookings',
-                      space.totalBookings.toString(),
-                      Colors.blue,
-                    ),
-                    const SizedBox(width: 8),
-                    _buildStatChip(
-                      'Current',
-                      space.currentBookings.toString(),
-                      Colors.green,
-                    ),
-                    const Spacer(),
+                    Icon(Icons.straighten_outlined, color: theme.colorScheme.onSurface.withOpacity(0.6), size: 16),
+                    const SizedBox(width: 4),
                     Text(
-                      space.priceDisplay,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).primaryColor,
+                      '${space.length}m × ${space.width}m × ${space.height}m',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurface.withOpacity(0.7),
                       ),
                     ),
                   ],
@@ -417,27 +296,16 @@ class _ManageSpaceScreenState extends State<ManageSpaceScreen> with WidgetsBindi
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: () => _viewSpaceDetails(space),
-                        icon: const Icon(Icons.visibility, size: 18),
-                        label: const Text('See More'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Theme.of(context).primaryColor,
-                          side: BorderSide(color: Theme.of(context).primaryColor),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
+                        icon: const Icon(Icons.visibility_outlined),
+                        label: const Text('View Details'),
                       ),
                     ),
                     const SizedBox(width: 12),
-                    IconButton(
-                      onPressed: () => _deleteSpace(space),
-                      icon: const Icon(Icons.delete_outline),
-                      color: Colors.red,
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.red.withOpacity(0.1),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () => _togglePause(space),
+                        icon: Icon(space.isPaused ? Icons.play_arrow_outlined : Icons.pause_outlined),
+                        label: Text(space.isPaused ? 'Resume' : 'Pause'),
                       ),
                     ),
                   ],
@@ -459,14 +327,14 @@ class _ManageSpaceScreenState extends State<ManageSpaceScreen> with WidgetsBindi
         ),
         gradient: LinearGradient(
           colors: [
-            Theme.of(context).primaryColor.withOpacity(0.8),
-            Theme.of(context).primaryColor,
+            Theme.of(context).colorScheme.primary.withOpacity(0.8),
+            Theme.of(context).colorScheme.primary,
           ],
         ),
       ),
       child: const Center(
         child: Icon(
-          Icons.local_parking,
+          Icons.local_parking_outlined,
           size: 48,
           color: Colors.white,
         ),
@@ -474,39 +342,44 @@ class _ManageSpaceScreenState extends State<ManageSpaceScreen> with WidgetsBindi
     );
   }
 
-  Widget _buildStatChip(String label, String value, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: TextStyle(
-              color: color,
-              fontWeight: FontWeight.bold,
-              fontSize: 12,
-            ),
-          ),
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 10,
-            ),
-          ),
-        ],
+  void _viewSpaceDetails(ParkingSpace space) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => SpaceDetailsScreen(space: space),
       ),
     );
   }
 
+  Future<void> _togglePause(ParkingSpace space) async {
+    try {
+      await ParkingSpaceService.togglePauseSpace(space.id, !space.isPaused);
+      await _loadSpaces(); // Refresh the list
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(space.isPaused ? 'Space resumed successfully!' : 'Space paused successfully!'),
+            backgroundColor: Theme.of(context).colorScheme.secondary,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update space: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
   Color _getStatusColor(ParkingSpace space) {
-    if (space.isPaused) return Colors.orange;
-    if (!space.isActive) return Colors.red;
-    return Colors.green;
+    final theme = Theme.of(context);
+    if (space.isPaused) return theme.colorScheme.tertiary;
+    if (!space.isActive) return theme.colorScheme.error;
+    return theme.colorScheme.secondary;
   }
 }
 
@@ -517,11 +390,13 @@ class SpaceDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
     return Scaffold(
       appBar: AppBar(
         title: Text(space.placeName),
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
+        backgroundColor: theme.colorScheme.primary,
+        foregroundColor: theme.colorScheme.onPrimary,
         elevation: 0,
       ),
       body: SingleChildScrollView(
@@ -535,8 +410,8 @@ class SpaceDetailsScreen extends StatelessWidget {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    Theme.of(context).primaryColor.withOpacity(0.8),
-                    Theme.of(context).primaryColor,
+                    theme.colorScheme.primary.withOpacity(0.8),
+                    theme.colorScheme.primary,
                   ],
                 ),
               ),
@@ -560,9 +435,7 @@ class SpaceDetailsScreen extends StatelessWidget {
                       Expanded(
                         child: Text(
                           space.placeName,
-                          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: theme.textTheme.headlineMedium,
                         ),
                       ),
                       Container(
@@ -576,7 +449,7 @@ class SpaceDetailsScreen extends StatelessWidget {
                           space.statusText,
                           style: TextStyle(
                             color: _getStatusColor(space),
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
@@ -586,8 +459,8 @@ class SpaceDetailsScreen extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text(
                     'Slot Number: ${space.slotNumber}',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Colors.grey[600],
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: theme.colorScheme.onSurface.withOpacity(0.7),
                     ),
                   ),
 
@@ -597,18 +470,19 @@ class SpaceDetailsScreen extends StatelessWidget {
                   _buildSection(
                     context,
                     'Location',
-                    Icons.location_on,
+                    Icons.location_on_outlined,
                     [
-                      Text(space.address),
+                      Text(
+                        space.address,
+                        style: theme.textTheme.bodyLarge,
+                      ),
                       const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Text('Coordinates: '),
-                          Text(
-                            '${space.latitude.toStringAsFixed(4)}, ${space.longitude.toStringAsFixed(4)}',
-                            style: const TextStyle(fontFamily: 'monospace'),
-                          ),
-                        ],
+                      Text(
+                        'Coordinates: ${space.latitude.toStringAsFixed(6)}, ${space.longitude.toStringAsFixed(6)}',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurface.withOpacity(0.7),
+                          fontFamily: 'monospace',
+                        ),
                       ),
                     ],
                   ),
@@ -619,9 +493,38 @@ class SpaceDetailsScreen extends StatelessWidget {
                   _buildSection(
                     context,
                     'Dimensions',
-                    Icons.straighten,
+                    Icons.straighten_outlined,
                     [
-                      Text('Size: ${space.dimensions}'),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildStatCard(
+                              context,
+                              'Length',
+                              '${space.length}m',
+                              theme.colorScheme.primary,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _buildStatCard(
+                              context,
+                              'Width',
+                              '${space.width}m',
+                              theme.colorScheme.secondary,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _buildStatCard(
+                              context,
+                              'Height',
+                              '${space.height}m',
+                              theme.colorScheme.tertiary,
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
 
@@ -630,45 +533,28 @@ class SpaceDetailsScreen extends StatelessWidget {
                   // Facilities section
                   _buildSection(
                     context,
-                    'Facilities',
-                    Icons.build,
+                    'Available Facilities',
+                    Icons.check_circle_outlined,
                     [
-                      if (space.facilities.isEmpty)
-                        const Text('Basic parking (no additional facilities)')
-                      else
+                      if (space.hasEvCharging || space.hasShelter || space.hasCctv)
                         Wrap(
                           spacing: 8,
                           runSpacing: 8,
-                          children: space.facilities.map((facility) {
-                            return Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: Theme.of(context).primaryColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: Theme.of(context).primaryColor.withOpacity(0.3),
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    _getFacilityIcon(facility),
-                                    size: 16,
-                                    color: Theme.of(context).primaryColor,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    facility,
-                                    style: TextStyle(
-                                      color: Theme.of(context).primaryColor,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }).toList(),
+                          children: [
+                            if (space.hasShelter)
+                              _buildFacilityChip(context, 'Shelter', Icons.roofing_outlined, theme.colorScheme.primary),
+                            if (space.hasCctv)
+                              _buildFacilityChip(context, 'CCTV', Icons.security_outlined, theme.colorScheme.secondary),
+                            if (space.hasEvCharging)
+                              _buildFacilityChip(context, 'EV Charging', Icons.electric_car_outlined, theme.colorScheme.tertiary),
+                          ],
+                        )
+                      else
+                        Text(
+                          'Basic parking (no additional facilities)',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurface.withOpacity(0.7),
+                          ),
                         ),
                     ],
                   ),
@@ -679,86 +565,30 @@ class SpaceDetailsScreen extends StatelessWidget {
                   _buildSection(
                     context,
                     'Pricing',
-                    Icons.attach_money,
+                    Icons.attach_money_outlined,
                     [
-                      Row(
-                        children: [
-                          Text('Rate: '),
-                          Text(
-                            space.priceDisplay,
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).primaryColor,
-                            ),
-                          ),
-                          if (space.isPremium)
-                            Container(
-                              margin: const EdgeInsets.only(left: 8),
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.amber.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.amber),
-                              ),
-                              child: const Text(
-                                'PREMIUM',
-                                style: TextStyle(
-                                  color: Colors.amber,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 10,
-                                ),
-                              ),
-                            ),
-                        ],
+                      Text(
+                        'Price per ${space.rentalMode}: \$${space.pricePerUnit}',
+                        style: theme.textTheme.titleMedium,
                       ),
-                      const SizedBox(height: 8),
-                      Text('Rental Mode: ${space.rentalMode.toUpperCase()}'),
-                    ],
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Availability section
-                  _buildSection(
-                    context,
-                    'Availability',
-                    Icons.schedule,
-                    [
-                      Text('Available: ${space.availableFrom} - ${space.availableTo}'),
-                      const SizedBox(height: 8),
-                      Text('Duration: ${_formatDate(space.rentalDurationFrom)} to ${_formatDate(space.rentalDurationTo)}'),
-                    ],
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Statistics section
-                  _buildSection(
-                    context,
-                    'Statistics',
-                    Icons.bar_chart,
-                    [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildStatCard(
-                              context,
-                              'Total Bookings',
-                              space.totalBookings.toString(),
-                              Colors.blue,
+                      if (space.isPremium) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.tertiary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: theme.colorScheme.tertiary),
+                          ),
+                          child: Text(
+                            'PREMIUM',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.tertiary,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: _buildStatCard(
-                              context,
-                              'Current Bookings',
-                              space.currentBookings.toString(),
-                              Colors.green,
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ],
                   ),
 
@@ -768,18 +598,10 @@ class SpaceDetailsScreen extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: ElevatedButton.icon(
+                        child: FilledButton.icon(
                           onPressed: () => _togglePause(context, space),
-                          icon: Icon(space.isPaused ? Icons.play_arrow : Icons.pause),
+                          icon: Icon(space.isPaused ? Icons.play_arrow_outlined : Icons.pause_outlined),
                           label: Text(space.isPaused ? 'Resume' : 'Pause'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: space.isPaused ? Colors.green : Colors.orange,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
                         ),
                       ),
                     ],
@@ -800,14 +622,14 @@ class SpaceDetailsScreen extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            Theme.of(context).primaryColor.withOpacity(0.8),
-            Theme.of(context).primaryColor,
+            Theme.of(context).colorScheme.primary.withOpacity(0.8),
+            Theme.of(context).colorScheme.primary,
           ],
         ),
       ),
       child: const Center(
         child: Icon(
-          Icons.local_parking,
+          Icons.local_parking_outlined,
           size: 64,
           color: Colors.white,
         ),
@@ -816,18 +638,18 @@ class SpaceDetailsScreen extends StatelessWidget {
   }
 
   Widget _buildSection(BuildContext context, String title, IconData icon, List<Widget> children) {
+    final theme = Theme.of(context);
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Icon(icon, color: Theme.of(context).primaryColor),
+            Icon(icon, color: theme.colorScheme.primary),
             const SizedBox(width: 8),
             Text(
               title,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: theme.textTheme.titleLarge,
             ),
           ],
         ),
@@ -838,6 +660,8 @@ class SpaceDetailsScreen extends StatelessWidget {
   }
 
   Widget _buildStatCard(BuildContext context, String title, String value, Color color) {
+    final theme = Theme.of(context);
+    
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -849,8 +673,7 @@ class SpaceDetailsScreen extends StatelessWidget {
         children: [
           Text(
             value,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
+            style: theme.textTheme.headlineSmall?.copyWith(
               color: color,
             ),
           ),
@@ -868,17 +691,35 @@ class SpaceDetailsScreen extends StatelessWidget {
     );
   }
 
-  IconData _getFacilityIcon(String facility) {
-    switch (facility) {
-      case 'EV Charging':
-        return Icons.electric_car;
-      case 'Shelter':
-        return Icons.roofing;
-      case 'CCTV':
-        return Icons.security;
-      default:
-        return Icons.check;
-    }
+  Widget _buildFacilityChip(BuildContext context, String label, IconData icon, Color color) {
+    final theme = Theme.of(context);
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 16,
+            color: color,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Color _getStatusColor(ParkingSpace space) {
@@ -887,30 +728,25 @@ class SpaceDetailsScreen extends StatelessWidget {
     return Colors.green;
   }
 
-  String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
-  }
-
   Future<void> _togglePause(BuildContext context, ParkingSpace space) async {
     try {
       await ParkingSpaceService.togglePauseSpace(space.id, !space.isPaused);
       
       if (context.mounted) {
+        Navigator.of(context).pop(); // Go back to the list
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(space.isPaused ? 'Space resumed successfully' : 'Space paused successfully'),
-            backgroundColor: Colors.green,
+            content: Text(space.isPaused ? 'Space resumed successfully!' : 'Space paused successfully!'),
+            backgroundColor: Theme.of(context).colorScheme.secondary,
           ),
         );
-        // Return true to indicate successful update
-        Navigator.of(context).pop(true);
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to ${space.isPaused ? 'resume' : 'pause'} space: $e'),
-            backgroundColor: Colors.red,
+            content: Text('Failed to update space: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
       }

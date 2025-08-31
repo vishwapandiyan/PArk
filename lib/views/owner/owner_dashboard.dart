@@ -42,7 +42,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to load wallet: $e'),
-            backgroundColor: Colors.orange,
+            backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
       }
@@ -50,6 +50,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
   }
 
   Future<void> _addMoney() async {
+    // Show dialog to add test money
     final amount = await showDialog<int>(
       context: context,
       builder: (context) => _AddMoneyDialog(),
@@ -63,13 +64,13 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
           amount,
           'Test money added',
         );
-        await _loadWalletData();
+        await _loadWalletData(); // Refresh wallet data
         
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('₹$amount added to wallet successfully!'),
-              backgroundColor: Colors.green,
+              backgroundColor: Theme.of(context).colorScheme.secondary,
             ),
           );
         }
@@ -78,7 +79,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Failed to add money: $e'),
-              backgroundColor: Colors.red,
+              backgroundColor: Theme.of(context).colorScheme.error,
             ),
           );
         }
@@ -87,22 +88,25 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
   }
 
   void _viewTransactionHistory() {
+    // TODO: Navigate to transaction history screen
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Transaction history coming soon!'),
-        backgroundColor: Colors.blue,
+      SnackBar(
+        content: const Text('Transaction history coming soon!'),
+        backgroundColor: Theme.of(context).colorScheme.primary,
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Owner Dashboard'),
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 0,
+        title: Text(
+          'Owner Dashboard',
+          style: theme.textTheme.headlineMedium,
+        ),
         actions: [
           IconButton(
             onPressed: () async {
@@ -111,249 +115,201 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
                 Navigator.of(context).pushReplacementNamed('/login');
               }
             },
-            icon: const Icon(Icons.logout),
+            icon: const Icon(Icons.logout_outlined),
             tooltip: 'Logout',
           ),
         ],
       ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Theme.of(context).primaryColor.withOpacity(0.1),
-              Colors.white,
-            ],
-          ),
-        ),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Wallet Card (replaces Welcome Header)
-              WalletCard(
-                wallet: _wallet,
-                recentTransactions: _recentTransactions,
-                isLoading: _isLoadingWallet,
-                onAddMoney: _addMoney,
-                onViewHistory: _viewTransactionHistory,
-              ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Wallet Card
+            WalletCard(
+              wallet: _wallet,
+              recentTransactions: _recentTransactions,
+              isLoading: _isLoadingWallet,
+              onAddMoney: _addMoney,
+              onViewHistory: _viewTransactionHistory,
+            ),
 
-              const SizedBox(height: 24),
+            const SizedBox(height: 32),
 
-              // Quick Actions
-              Text(
-                'Quick Actions',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+            // Quick Actions Section
+            Text(
+              'Quick Actions',
+              style: theme.textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 16),
+
+            // Action Cards
+            Column(
+              children: [
+                _buildActionCard(
+                  context,
+                  title: 'Manage Spaces',
+                  subtitle: 'Add, edit, or remove parking spots',
+                  icon: Icons.edit_location_outlined,
+                  color: theme.colorScheme.primary,
+                  onTap: () => Navigator.of(context).pushNamed('/manage_space'),
                 ),
-              ),
-              const SizedBox(height: 16),
-
-              // Manage Spaces Card
-              _buildActionCard(
-                context,
-                title: 'Manage Spaces',
-                subtitle: 'Add, edit, or remove parking spots',
-                icon: Icons.edit_location,
-                color: Colors.blue,
-                onTap: () => Navigator.of(context).pushNamed('/manage_space'),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Analytics Card
-              _buildActionCard(
-                context,
-                title: 'Analytics',
-                subtitle: 'View earnings and usage statistics',
-                icon: Icons.analytics,
-                color: Colors.green,
-                onTap: () => Navigator.of(context).pushNamed('/analytics'),
-              ),
-
-              const SizedBox(height: 24),
-
-              // Earnings Overview
-              Text(
-                'Earnings Overview',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+                const SizedBox(height: 16),
+                _buildActionCard(
+                  context,
+                  title: 'Analytics',
+                  subtitle: 'View earnings and usage statistics',
+                  icon: Icons.analytics_outlined,
+                  color: theme.colorScheme.secondary,
+                  onTap: () => Navigator.of(context).pushNamed('/analytics'),
                 ),
-              ),
-              const SizedBox(height: 16),
+              ],
+            ),
 
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildStatCard(
-                      context,
-                      title: 'Today',
-                      value: '\$0',
-                      icon: Icons.today,
-                      color: Colors.blue,
+            const SizedBox(height: 32),
+
+            // Earnings Overview Section
+            Text(
+              'Earnings Overview',
+              style: theme.textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 16),
+
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatCard(
+                    context,
+                    title: 'Today',
+                    value: '\$0',
+                    icon: Icons.calendar_today_outlined,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildStatCard(
+                    context,
+                    title: 'This Week',
+                    value: '\$0',
+                    icon: Icons.calendar_view_week_outlined,
+                    color: theme.colorScheme.secondary,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildStatCard(
+                    context,
+                    title: 'This Month',
+                    value: '\$0',
+                    icon: Icons.calendar_month_outlined,
+                    color: theme.colorScheme.tertiary,
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 32),
+
+            // Recent Bookings Section
+            Text(
+              'Recent Bookings',
+              style: theme.textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 16),
+
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.history_outlined,
+                      color: theme.colorScheme.onSurface.withOpacity(0.6),
+                      size: 24,
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _buildStatCard(
-                      context,
-                      title: 'This Week',
-                      value: '\$0',
-                      icon: Icons.date_range,
-                      color: Colors.green,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _buildStatCard(
-                      context,
-                      title: 'This Month',
-                      value: '\$0',
-                      icon: Icons.calendar_month,
-                      color: Colors.orange,
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 24),
-
-              // Recent Bookings
-              Text(
-                'Recent Bookings',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              Card(
-                elevation: 2,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.history,
-                            color: Colors.grey[600],
-                            size: 24,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              'No recent bookings',
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // Space Management
-              Text(
-                'Space Management',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildStatCard(
-                      context,
-                      title: 'Total Spaces',
-                      value: '0',
-                      icon: Icons.local_parking,
-                      color: Colors.purple,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _buildStatCard(
-                      context,
-                      title: 'Available',
-                      value: '0',
-                      icon: Icons.check_circle,
-                      color: Colors.green,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _buildStatCard(
-                      context,
-                      title: 'Occupied',
-                      value: '0',
-                      icon: Icons.block,
-                      color: Colors.red,
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 32),
-
-              // Quick Tips
-              Card(
-                elevation: 2,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.lightbulb_outline,
-                            color: Colors.amber[600],
-                            size: 24,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              'Pro Tips',
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        '• Set competitive pricing to attract more drivers\n• Keep your spaces well-maintained for better ratings\n• Respond quickly to booking requests\n• Use analytics to optimize your parking business',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.grey[600],
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Text(
+                        'No recent bookings',
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: theme.colorScheme.onSurface.withOpacity(0.6),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
+            ),
+
+            const SizedBox(height: 32),
+
+            // Space Management Section
+            Text(
+              'Space Management',
+              style: theme.textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 16),
+
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatCard(
+                    context,
+                    title: 'Active Spaces',
+                    value: '0',
+                    icon: Icons.local_parking_outlined,
+                    color: theme.colorScheme.secondary,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildStatCard(
+                    context,
+                    title: 'Total Earnings',
+                    value: '\$0',
+                    icon: Icons.attach_money_outlined,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 32),
+
+            // Quick Tips Section
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.lightbulb_outline,
+                          color: theme.colorScheme.tertiary,
+                          size: 24,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Pro Tips',
+                          style: theme.textTheme.titleLarge,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      '• Set competitive pricing to attract more drivers\n• Keep your spaces well-maintained for better ratings\n• Respond quickly to booking requests\n• Use analytics to optimize your parking business',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurface.withOpacity(0.7),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -367,14 +323,12 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
     required Color color,
     required VoidCallback onTap,
   }) {
+    final theme = Theme.of(context);
+    
     return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(20),
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Row(
@@ -383,8 +337,8 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
                 width: 56,
                 height: 56,
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  color: color.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(16),
                 ),
                 child: Icon(
                   icon,
@@ -399,24 +353,21 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
                   children: [
                     Text(
                       title,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
+                      style: theme.textTheme.titleMedium,
                     ),
                     const SizedBox(height: 4),
                     Text(
                       subtitle,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.grey[600],
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurface.withOpacity(0.7),
                       ),
                     ),
                   ],
                 ),
               ),
               Icon(
-                Icons.arrow_forward_ios,
-                color: Colors.grey[400],
+                Icons.arrow_forward_ios_outlined,
+                color: theme.colorScheme.onSurface.withOpacity(0.4),
                 size: 16,
               ),
             ],
@@ -433,11 +384,9 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
     required IconData icon,
     required Color color,
   }) {
+    final theme = Theme.of(context);
+    
     return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -446,8 +395,8 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
+                color: color.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(16),
               ),
               child: Icon(
                 icon,
@@ -458,16 +407,15 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
             const SizedBox(height: 12),
             Text(
               value,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
+              style: theme.textTheme.headlineSmall?.copyWith(
                 color: color,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               title,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.grey[600],
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withOpacity(0.7),
               ),
               textAlign: TextAlign.center,
             ),
@@ -489,21 +437,22 @@ class _AddMoneyDialogState extends State<_AddMoneyDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
     return AlertDialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      title: const Text(
-        'Add Test Money',
-        style: TextStyle(fontWeight: FontWeight.bold),
+      title: Text(
+        'Add Money to Wallet',
+        style: theme.textTheme.headlineSmall,
       ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Select amount to add to your wallet:',
-            style: TextStyle(color: Colors.grey),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface.withOpacity(0.7),
+            ),
           ),
           const SizedBox(height: 16),
           Wrap(
@@ -511,67 +460,51 @@ class _AddMoneyDialogState extends State<_AddMoneyDialog> {
             runSpacing: 8,
             children: _predefinedAmounts.map((amount) {
               final isSelected = amount == _selectedAmount;
-              return ChoiceChip(
-                label: Text('₹$amount'),
-                selected: isSelected,
-                onSelected: (selected) {
-                  if (selected) {
-                    setState(() => _selectedAmount = amount);
-                  }
-                },
-                selectedColor: Theme.of(context).primaryColor.withOpacity(0.2),
-                labelStyle: TextStyle(
-                  color: isSelected ? Theme.of(context).primaryColor : null,
-                  fontWeight: isSelected ? FontWeight.bold : null,
-                ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.orange.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.orange.withOpacity(0.3)),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.info_outline, color: Colors.orange[700], size: 20),
-                const SizedBox(width: 8),
-                Expanded(
+              return InkWell(
+                onTap: () => setState(() => _selectedAmount = amount),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: isSelected 
+                        ? theme.colorScheme.primary 
+                        : theme.colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isSelected 
+                          ? theme.colorScheme.primary 
+                          : theme.colorScheme.outline,
+                    ),
+                  ),
                   child: Text(
-                    'This is test currency for development purposes only.',
-                    style: TextStyle(
-                      color: Colors.orange[700],
-                      fontSize: 12,
+                    '₹$amount',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: isSelected 
+                          ? theme.colorScheme.onPrimary 
+                          : theme.colorScheme.onSurface,
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                     ),
                   ),
                 ),
-              ],
-            ),
+              );
+            }).toList(),
           ),
         ],
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text('Cancel'),
         ),
-        ElevatedButton(
+        FilledButton(
           onPressed: () => Navigator.of(context).pop(_selectedAmount),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Theme.of(context).primaryColor,
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-          child: Text('Add ₹$_selectedAmount'),
+          child: Text('Add Money'),
         ),
       ],
     );
   }
 }
+
+
 
 

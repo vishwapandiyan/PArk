@@ -33,73 +33,10 @@ class CustomInput extends StatelessWidget {
       keyboardType: keyboardType,
       maxLines: maxLines,
       enabled: enabled,
-      style: TextStyle(
-        color: enabled ? Colors.black87 : Colors.grey[600],
-        fontSize: 16,
-      ),
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-        hintStyle: TextStyle(
-          color: Colors.grey[500],
-          fontSize: 14,
-        ),
-        prefixIcon: Icon(
-          icon,
-          color: enabled 
-              ? Theme.of(context).primaryColor 
-              : Colors.grey[400],
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(
-            color: Colors.grey[300]!,
-            width: 1.5,
-          ),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(
-            color: Colors.grey[300]!,
-            width: 1.5,
-          ),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(
-            color: Theme.of(context).primaryColor,
-            width: 2.0,
-          ),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(
-            color: Colors.red[400]!,
-            width: 1.5,
-          ),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(
-            color: Colors.red[400]!,
-            width: 2.0,
-          ),
-        ),
-        filled: true,
-        fillColor: enabled ? Colors.white : Colors.grey[100],
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 16,
-        ),
-        labelStyle: TextStyle(
-          color: enabled ? Colors.grey[700] : Colors.grey[500],
-          fontSize: 16,
-        ),
-        floatingLabelStyle: TextStyle(
-          color: Theme.of(context).primaryColor,
-          fontSize: 16,
-          fontWeight: FontWeight.w500,
-        ),
+        prefixIcon: Icon(icon),
       ),
     );
   }

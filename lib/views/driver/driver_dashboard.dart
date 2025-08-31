@@ -99,12 +99,14 @@ class _DriverDashboardState extends State<DriverDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Driver Dashboard'),
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 0,
+        title: Text(
+          'Dashboard',
+          style: theme.textTheme.headlineMedium,
+        ),
         actions: [
           IconButton(
             onPressed: () async {
@@ -113,211 +115,164 @@ class _DriverDashboardState extends State<DriverDashboard> {
                 Navigator.of(context).pushReplacementNamed('/login');
               }
             },
-            icon: const Icon(Icons.logout),
-            tooltip: 'Logout',
+            icon: const Icon(Icons.logout_outlined),
+            tooltip: 'Sign Out',
           ),
         ],
       ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Theme.of(context).primaryColor.withOpacity(0.1),
-              Colors.white,
-            ],
-          ),
-        ),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Wallet Card (replaces Welcome Header)
-              WalletCard(
-                wallet: _wallet,
-                recentTransactions: _recentTransactions,
-                isLoading: _isLoadingWallet,
-                onAddMoney: _addMoney,
-                onViewHistory: _viewTransactionHistory,
-              ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Wallet Card
+            WalletCard(
+              wallet: _wallet,
+              recentTransactions: _recentTransactions,
+              isLoading: _isLoadingWallet,
+              onAddMoney: _addMoney,
+              onViewHistory: _viewTransactionHistory,
+            ),
 
-              const SizedBox(height: 24),
+            const SizedBox(height: 32),
 
-              // Quick Actions
-              Text(
-                'Quick Actions',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+            // Quick Actions Section
+            Text(
+              'Quick Actions',
+              style: theme.textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 16),
+
+            // Action Cards Grid
+            Column(
+              children: [
+                _buildActionCard(
+                  context,
+                  title: 'Book Parking',
+                  subtitle: 'Find and reserve parking spots',
+                  icon: Icons.local_parking_outlined,
+                  color: theme.colorScheme.primary,
+                  onTap: () => Navigator.of(context).pushNamed('/booking'),
                 ),
-              ),
-              const SizedBox(height: 16),
-
-              // Book Parking Card
-              _buildActionCard(
-                context,
-                title: 'Book Parking',
-                subtitle: 'Find and reserve parking spots',
-                icon: Icons.local_parking,
-                color: Colors.blue,
-                onTap: () => Navigator.of(context).pushNamed('/booking'),
-              ),
-
-              const SizedBox(height: 16),
-
-              // View Slots Card
-              _buildActionCard(
-                context,
-                title: 'Available Slots',
-                subtitle: 'Browse all parking options',
-                icon: Icons.list,
-                color: Colors.green,
-                onTap: () => Navigator.of(context).pushNamed('/slots'),
-              ),
-
-              const SizedBox(height: 24),
-
-              // Recent Activity
-              Text(
-                'Recent Activity',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+                const SizedBox(height: 16),
+                _buildActionCard(
+                  context,
+                  title: 'Available Slots',
+                  subtitle: 'Browse all parking options',
+                  icon: Icons.list_outlined,
+                  color: theme.colorScheme.secondary,
+                  onTap: () => Navigator.of(context).pushNamed('/slots'),
                 ),
-              ),
-              const SizedBox(height: 16),
+              ],
+            ),
 
-              Card(
-                elevation: 2,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.history,
-                            color: Colors.grey[600],
-                            size: 24,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              'No recent bookings',
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+            const SizedBox(height: 32),
+
+            // Stats Section
+            Text(
+              'Your Stats',
+              style: theme.textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 16),
+
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatCard(
+                    context,
+                    title: 'Total Bookings',
+                    value: '0',
+                    icon: Icons.bookmark_outline,
+                    color: theme.colorScheme.tertiary,
                   ),
                 ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // Stats Section
-              Text(
-                'Your Stats',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildStatCard(
+                    context,
+                    title: 'Saved Spots',
+                    value: '0',
+                    icon: Icons.favorite_outline,
+                    color: theme.colorScheme.secondary,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
+              ],
+            ),
 
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildStatCard(
-                      context,
-                      title: 'Total Bookings',
-                      value: '0',
-                      icon: Icons.bookmark,
-                      color: Colors.orange,
+            const SizedBox(height: 32),
+
+            // Recent Activity
+            Text(
+              'Recent Activity',
+              style: theme.textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 16),
+
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.history_outlined,
+                      color: theme.colorScheme.onSurface.withOpacity(0.6),
+                      size: 24,
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _buildStatCard(
-                      context,
-                      title: 'Saved Spots',
-                      value: '0',
-                      icon: Icons.favorite,
-                      color: Colors.red,
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 32),
-
-              // Help & Support
-              Card(
-                elevation: 2,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.help_outline,
-                            color: Theme.of(context).primaryColor,
-                            size: 24,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              'Need Help?',
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Contact our support team for assistance with bookings, payments, or any other questions.',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.grey[600],
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Text(
+                        'No recent bookings',
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: theme.colorScheme.onSurface.withOpacity(0.6),
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            // TODO: Implement help/support functionality
-                          },
-                          icon: const Icon(Icons.support_agent),
-                          label: const Text('Contact Support'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Theme.of(context).primaryColor,
-                            side: BorderSide(color: Theme.of(context).primaryColor),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
+            ),
+
+            const SizedBox(height: 32),
+
+            // Help & Support
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.help_outline,
+                          color: theme.colorScheme.primary,
+                          size: 24,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Need Help?',
+                          style: theme.textTheme.titleLarge,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Contact our support team for assistance with bookings, payments, or any other questions.',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 20),
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        // TODO: Implement help/support functionality
+                      },
+                      icon: const Icon(Icons.support_agent_outlined),
+                      label: const Text('Contact Support'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -331,14 +286,12 @@ class _DriverDashboardState extends State<DriverDashboard> {
     required Color color,
     required VoidCallback onTap,
   }) {
+    final theme = Theme.of(context);
+    
     return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(20),
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Row(
@@ -347,8 +300,8 @@ class _DriverDashboardState extends State<DriverDashboard> {
                 width: 56,
                 height: 56,
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  color: color.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(16),
                 ),
                 child: Icon(
                   icon,
@@ -363,24 +316,21 @@ class _DriverDashboardState extends State<DriverDashboard> {
                   children: [
                     Text(
                       title,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
+                      style: theme.textTheme.titleMedium,
                     ),
                     const SizedBox(height: 4),
                     Text(
                       subtitle,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.grey[600],
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurface.withOpacity(0.7),
                       ),
                     ),
                   ],
                 ),
               ),
               Icon(
-                Icons.arrow_forward_ios,
-                color: Colors.grey[400],
+                Icons.arrow_forward_ios_outlined,
+                color: theme.colorScheme.onSurface.withOpacity(0.4),
                 size: 16,
               ),
             ],
@@ -397,11 +347,9 @@ class _DriverDashboardState extends State<DriverDashboard> {
     required IconData icon,
     required Color color,
   }) {
+    final theme = Theme.of(context);
+    
     return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -410,8 +358,8 @@ class _DriverDashboardState extends State<DriverDashboard> {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
+                color: color.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(16),
               ),
               child: Icon(
                 icon,
@@ -422,16 +370,15 @@ class _DriverDashboardState extends State<DriverDashboard> {
             const SizedBox(height: 12),
             Text(
               value,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
+              style: theme.textTheme.headlineSmall?.copyWith(
                 color: color,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               title,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.grey[600],
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withOpacity(0.7),
               ),
               textAlign: TextAlign.center,
             ),
@@ -453,21 +400,20 @@ class _AddMoneyDialogState extends State<_AddMoneyDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
     return AlertDialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      title: const Text(
+      title: Text(
         'Add Test Money',
-        style: TextStyle(fontWeight: FontWeight.bold),
+        style: theme.textTheme.headlineSmall,
       ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Select amount to add to your wallet:',
-            style: TextStyle(color: Colors.grey),
+            style: theme.textTheme.bodyMedium,
           ),
           const SizedBox(height: 16),
           Wrap(
@@ -483,11 +429,6 @@ class _AddMoneyDialogState extends State<_AddMoneyDialog> {
                     setState(() => _selectedAmount = amount);
                   }
                 },
-                selectedColor: Theme.of(context).primaryColor.withOpacity(0.2),
-                labelStyle: TextStyle(
-                  color: isSelected ? Theme.of(context).primaryColor : null,
-                  fontWeight: isSelected ? FontWeight.bold : null,
-                ),
               );
             }).toList(),
           ),
@@ -495,20 +436,25 @@ class _AddMoneyDialogState extends State<_AddMoneyDialog> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.orange.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.orange.withOpacity(0.3)),
+              color: theme.colorScheme.tertiary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: theme.colorScheme.tertiary.withOpacity(0.3),
+              ),
             ),
             child: Row(
               children: [
-                Icon(Icons.info_outline, color: Colors.orange[700], size: 20),
+                Icon(
+                  Icons.info_outline,
+                  color: theme.colorScheme.tertiary,
+                  size: 20,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'This is test currency for development purposes only.',
-                    style: TextStyle(
-                      color: Colors.orange[700],
-                      fontSize: 12,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.tertiary,
                     ),
                   ),
                 ),
@@ -522,15 +468,8 @@ class _AddMoneyDialogState extends State<_AddMoneyDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
-        ElevatedButton(
+        FilledButton(
           onPressed: () => Navigator.of(context).pop(_selectedAmount),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Theme.of(context).primaryColor,
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
           child: Text('Add ₹$_selectedAmount'),
         ),
       ],

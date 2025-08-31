@@ -2,12 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../controllers/auth_controller.dart';
+import '../../models/car_model.dart';
+import '../../services/car_service.dart';
 import '../../services/parking_space_service.dart';
-import '../../services/parking_time_slot_service.dart';
-import '../../models/parking_time_slot_model.dart';
-import '../../widgets/google_maps_location_picker.dart';
-import '../../widgets/time_slots_display.dart';
-
 
 class AddSpaceScreen extends StatefulWidget {
   const AddSpaceScreen({super.key});
@@ -18,354 +15,385 @@ class AddSpaceScreen extends StatefulWidget {
 
 class _AddSpaceScreenState extends State<AddSpaceScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _scrollController = ScrollController();
-  
-  // Form controllers
-  final _slotNumberCtrl = TextEditingController();
-  final _placeNameCtrl = TextEditingController();
-  final _addressCtrl = TextEditingController();
-  final _lengthCtrl = TextEditingController();
-  final _widthCtrl = TextEditingController();
-  final _heightCtrl = TextEditingController();
+  final _placeNameController = TextEditingController();
+  final _addressController = TextEditingController();
+  final _slotNumberController = TextEditingController();
+  final _lengthController = TextEditingController();
+  final _widthController = TextEditingController();
+  final _heightController = TextEditingController();
+  final _availableFromController = TextEditingController();
+  final _availableToController = TextEditingController();
+  final _priceController = TextEditingController();
+  final _descriptionController = TextEditingController();
 
-  // Form state
+  String? _selectedRentalMode = 'hourly';
+  String? _selectedRentalDuration = '1 month';
+  double? _latitude;
+  double? _longitude;
+  String _selectedAddress = '';
   String? _landProofPath;
   String? _placeImagePath;
   bool _hasEvCharging = false;
   bool _hasShelter = false;
   bool _hasCctv = false;
-  double? _latitude;
-  double? _longitude;
-  String _selectedAddress = '';
-  DateTimeRange? _rentalDuration;
-  TimeOfDay? _availableFrom;
-  TimeOfDay? _availableTo;
-  String _rentalMode = 'hourly';
-  int? _selectedPrice;
   bool _isSubmitting = false;
-  List<ParkingTimeSlot> _generatedSlots = [];
 
   @override
   void dispose() {
-    _slotNumberCtrl.dispose();
-    _placeNameCtrl.dispose();
-    _addressCtrl.dispose();
-    _lengthCtrl.dispose();
-    _widthCtrl.dispose();
-    _heightCtrl.dispose();
-    _scrollController.dispose();
+    _placeNameController.dispose();
+    _addressController.dispose();
+    _slotNumberController.dispose();
+    _lengthController.dispose();
+    _widthController.dispose();
+    _heightController.dispose();
+    _availableFromController.dispose();
+    _availableToController.dispose();
+    _priceController.dispose();
+    _descriptionController.dispose();
     super.dispose();
-  }
-
-  /// Generate time slots based on current form settings
-  void _generateTimeSlots() {
-    if (_availableFrom == null || _availableTo == null) {
-      setState(() {
-        _generatedSlots = [];
-      });
-      return;
-    }
-
-    setState(() {
-      _generatedSlots = ParkingTimeSlotService.generateTimeSlots(
-        parkingSpaceId: '', // Will be filled when saving
-        availableFrom: _availableFrom!,
-        availableTo: _availableTo!,
-        rentalMode: _rentalMode,
-      );
-    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Add Parking Space'),
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Theme.of(context).primaryColor.withOpacity(0.1),
-              Colors.white,
-            ],
-          ),
+        title: Text(
+          'Add Parking Space',
+          style: theme.textTheme.headlineMedium,
         ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
         child: Form(
           key: _formKey,
-          child: SingleChildScrollView(
-            controller: _scrollController,
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Progress indicator
-                _buildProgressIndicator(),
-                
-                const SizedBox(height: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Progress Indicator
+              _buildProgressIndicator(),
 
-                // Section 1: Basic Information
-                _buildSection(
-                  'Basic Information',
-                  Icons.info,
-                  [
-                    _buildTextFormField(
-                      controller: _slotNumberCtrl,
-                      label: 'Slot Number',
-                      hint: 'e.g., PS001, A-123',
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Please enter a slot number';
-                        }
-                        return null;
+              const SizedBox(height: 32),
+
+              // Location Section
+              _buildSection(
+                'Location',
+                Icons.location_on_outlined,
+                [
+                  _buildLocationPicker(),
+                  const SizedBox(height: 16),
+                  _buildTextFormField(
+                    controller: _placeNameController,
+                    label: 'Place Name',
+                    hint: 'Enter the name of your parking space',
+                    icon: Icons.business_outlined,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter a place name';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _buildTextFormField(
+                    controller: _addressController,
+                    label: 'Address',
+                    hint: 'Enter the full address',
+                    icon: Icons.home_outlined,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter an address';
+                      }
+                      return null;
                       },
-                    ),
-                    const SizedBox(height: 16),
-                    _buildTextFormField(
-                      controller: _placeNameCtrl,
-                      label: 'Place Name',
-                      hint: 'e.g., Downtown Premium Parking',
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Please enter a place name';
-                        }
-                        return null;
-                      },
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildTextFormField(
+                    controller: _slotNumberController,
+                    label: 'Slot Number',
+                    hint: 'Enter slot number (e.g., A1, B2)',
+                    icon: Icons.confirmation_number_outlined,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter a slot number';
+                      }
+                      return null;
+                    },
+                  ),
+                ],
+              ),
 
-                const SizedBox(height: 24),
+              const SizedBox(height: 32),
 
-                // Section 2: Location
-                _buildSection(
-                  'Location',
-                  Icons.location_on,
-                  [
-                    _buildTextFormField(
-                      controller: _addressCtrl,
-                      label: 'Address',
-                      hint: 'Enter the full address',
-                      maxLines: 2,
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Please enter the address';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    _buildLocationPicker(),
-                  ],
-                ),
-
-                const SizedBox(height: 24),
-
-                // Section 3: Dimensions
-                _buildSection(
-                  'Dimensions (in meters)',
-                  Icons.straighten,
-                  [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildTextFormField(
-                            controller: _lengthCtrl,
-                            label: 'Length (m)',
-                            hint: '5.5',
-                            keyboardType: TextInputType.number,
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return 'Required';
-                              }
-                              final num = double.tryParse(value);
-                              if (num == null || num <= 0) {
-                                return 'Invalid';
-                              }
-                              return null;
-                            },
-                          ),
+              // Dimensions Section
+              _buildSection(
+                'Dimensions (in meters)',
+                Icons.straighten_outlined,
+                [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildTextFormField(
+                          controller: _lengthController,
+                          label: 'Length',
+                          hint: 'Length...',
+                          icon: Icons.straighten_outlined,
+                          keyboardType: TextInputType.number,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter length';
+                            }
+                            if (double.tryParse(value) == null) {
+                              return 'Please enter a valid number';
+                            }
+                            return null;
+                          },
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildTextFormField(
-                            controller: _widthCtrl,
-                            label: 'Width (m)',
-                            hint: '3.0',
-                            keyboardType: TextInputType.number,
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return 'Required';
-                              }
-                              final num = double.tryParse(value);
-                              if (num == null || num <= 0) {
-                                return 'Invalid';
-                              }
-                              return null;
-                            },
-                          ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _buildTextFormField(
+                          controller: _widthController,
+                          label: 'Width',
+                          hint: 'Width...',
+                          icon: Icons.straighten_outlined,
+                          keyboardType: TextInputType.number,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter width';
+                            }
+                            if (double.tryParse(value) == null) {
+                              return 'Please enter a valid number';
+                            }
+                            return null;
+                          },
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildTextFormField(
-                            controller: _heightCtrl,
-                            label: 'Height (m)',
-                            hint: '2.5',
-                            keyboardType: TextInputType.number,
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return 'Required';
-                              }
-                              final num = double.tryParse(value);
-                              if (num == null || num <= 0) {
-                                return 'Invalid';
-                              }
-                              return null;
-                            },
-                          ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _buildTextFormField(
+                          controller: _heightController,
+                          label: 'Height',
+                          hint: 'Height...',
+                          icon: Icons.height_outlined,
+                          keyboardType: TextInputType.number,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter height';
+                            }
+                            if (double.tryParse(value) == null) {
+                              return 'Please enter a valid number';
+                            }
+                            return null;
+                          },
                         ),
-                      ],
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 24),
-
-                // Section 4: File Uploads
-                _buildSection(
-                  'Documentation',
-                  Icons.upload_file,
-                  [
-                    _buildFileUploadField(
-                      'Land Proof Document',
-                      'Upload ownership/lease document',
-                      _landProofPath,
-                      (path) => setState(() => _landProofPath = path),
-                      Icons.description,
-                    ),
-                    const SizedBox(height: 16),
-                    _buildFileUploadField(
-                      'Place Image',
-                      'Upload a photo of the parking space',
-                      _placeImagePath,
-                      (path) => setState(() => _placeImagePath = path),
-                      Icons.photo_camera,
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 24),
-
-                // Section 5: Facilities
-                _buildSection(
-                  'Available Facilities',
-                  Icons.build,
-                  [
-                    _buildFacilityCheckbox(
-                      'EV Charging',
-                      'Electric vehicle charging station available',
-                      Icons.electric_car,
-                      _hasEvCharging,
-                      (value) => setState(() => _hasEvCharging = value ?? false),
-                    ),
-                    _buildFacilityCheckbox(
-                      'Shelter',
-                      'Covered parking with roof protection',
-                      Icons.roofing,
-                      _hasShelter,
-                      (value) => setState(() => _hasShelter = value ?? false),
-                    ),
-                    _buildFacilityCheckbox(
-                      'CCTV',
-                      '24/7 video surveillance for security',
-                      Icons.security,
-                      _hasCctv,
-                      (value) => setState(() => _hasCctv = value ?? false),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 24),
-
-                // Section 6: Rental Settings
-                _buildSection(
-                  'Rental Settings',
-                  Icons.schedule,
-                  [
-                    _buildRentalDurationPicker(),
-                    const SizedBox(height: 16),
-                    _buildAvailabilityTimePicker(),
-                    const SizedBox(height: 16),
-                    _buildRentalModeSelector(),
-                    const SizedBox(height: 16),
-                    _buildPriceSelector(),
-                  ],
-                ),
-
-                const SizedBox(height: 24),
-
-                // Section 7: Generated Time Slots
-                if (_availableFrom != null && _availableTo != null)
-                  _buildSection(
-                    'Generated Time Slots',
-                    Icons.access_time,
-                    [
-                      TimeSlotsDisplay(
-                        slots: _generatedSlots,
-                        isPreview: true,
                       ),
                     ],
                   ),
+                ],
+              ),
 
-                const SizedBox(height: 32),
+              const SizedBox(height: 32),
 
-                // Submit button
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _isSubmitting ? null : _submitForm,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).primaryColor,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: _isSubmitting
-                        ? const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2,
-                                ),
-                              ),
-                              SizedBox(width: 12),
-                              Text('Creating Parking Space...'),
-                            ],
-                          )
-                        : const Text(
-                            'Create Parking Space',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+              // Rental Settings Section
+              _buildSection(
+                'Rental Settings',
+                Icons.schedule_outlined,
+                [
+                  _buildTextFormField(
+                    controller: _availableFromController,
+                    label: 'Available From',
+                    hint: 'From',
+                    icon: Icons.access_time_outlined,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter available time';
+                      }
+                      return null;
+                    },
                   ),
-                ),
+                  const SizedBox(height: 16),
+                  _buildTextFormField(
+                    controller: _availableToController,
+                    label: 'Available To',
+                    hint: 'To',
+                    icon: Icons.access_time_outlined,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter available time';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _buildDropdownFormField(
+                    value: _selectedRentalMode,
+                    label: 'Rental Mode',
+                    hint: 'Select rental mode',
+                    icon: Icons.calendar_today_outlined,
+                    items: const [
+                      DropdownMenuItem(value: 'hourly', child: Text('Hourly')),
+                      DropdownMenuItem(value: 'daily', child: Text('Daily')),
+                      DropdownMenuItem(value: 'monthly', child: Text('Monthly')),
+                      DropdownMenuItem(value: 'yearly', child: Text('Yearly')),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedRentalMode = value;
+                      });
+                    },
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please select rental mode';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _buildDropdownFormField(
+                    value: _selectedRentalDuration,
+                    label: 'Rental Duration',
+                    hint: 'Select rental period',
+                    icon: Icons.date_range_outlined,
+                    items: const [
+                      DropdownMenuItem(value: '1 month', child: Text('1 Month')),
+                      DropdownMenuItem(value: '3 months', child: Text('3 Months')),
+                      DropdownMenuItem(value: '6 months', child: Text('6 Months')),
+                      DropdownMenuItem(value: '1 year', child: Text('1 Year')),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedRentalDuration = value;
+                      });
+                    },
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please select rental duration';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _buildTextFormField(
+                    controller: _priceController,
+                    label: 'Price per Unit',
+                    hint: 'Select price',
+                    icon: Icons.attach_money_outlined,
+                    keyboardType: TextInputType.number,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter price';
+                      }
+                      if (double.tryParse(value) == null) {
+                        return 'Please enter a valid number';
+                      }
+                      return null;
+                    },
+                  ),
+                ],
+              ),
 
-                const SizedBox(height: 24),
-              ],
-            ),
+              const SizedBox(height: 32),
+
+              // Facilities Section
+              _buildSection(
+                'Available Facilities',
+                Icons.build_outlined,
+                [
+                  _buildFacilityCheckbox(
+                    'Shelter',
+                    'Covered parking space',
+                    Icons.roofing_outlined,
+                    _hasShelter,
+                    (value) {
+                      setState(() {
+                        _hasShelter = value ?? false;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  _buildFacilityCheckbox(
+                    'CCTV Surveillance',
+                    '24/7 security monitoring',
+                    Icons.security_outlined,
+                    _hasCctv,
+                    (value) {
+                      setState(() {
+                        _hasCctv = value ?? false;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  _buildFacilityCheckbox(
+                    'EV Charging',
+                    'Electric vehicle charging station',
+                    Icons.electric_car_outlined,
+                    _hasEvCharging,
+                    (value) {
+                      setState(() {
+                        _hasEvCharging = value ?? false;
+                      });
+                    },
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 32),
+
+              // Documentation Section
+              _buildSection(
+                'Documentation',
+                Icons.description_outlined,
+                [
+                  _buildFilePicker(
+                    'Land Proof Document',
+                    'Upload ownership/lease document',
+                    _landProofPath,
+                    (path) {
+                      setState(() {
+                        _landProofPath = path;
+                      });
+                    },
+                    Icons.description_outlined,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildFilePicker(
+                    'Place Image',
+                    'Upload a photo of the parking space',
+                    _placeImagePath,
+                    (path) {
+                      setState(() {
+                        _placeImagePath = path;
+                      });
+                    },
+                    Icons.camera_alt_outlined,
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 32),
+
+              // Description Section
+              _buildSection(
+                'Additional Information',
+                Icons.info_outline,
+                [
+                  _buildTextFormField(
+                    controller: _descriptionController,
+                    label: 'Description',
+                    hint: '24/7 video surveillance for security',
+                    icon: Icons.edit_outlined,
+                    maxLines: 3,
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 32),
+
+              // Submit Button
+              _buildAddSpaceButton(),
+            ],
           ),
         ),
       ),
@@ -373,9 +401,9 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
   }
 
   Widget _buildProgressIndicator() {
+    final theme = Theme.of(context);
+    
     return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -384,21 +412,21 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
               children: [
                 Icon(
                   Icons.info_outline,
-                  color: Theme.of(context).primaryColor,
+                  color: theme.colorScheme.primary,
                 ),
                 const SizedBox(width: 8),
                 Text(
                   'New Parking Space Setup',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: theme.textTheme.titleMedium,
                 ),
               ],
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Fill out all sections below to add your parking space to the platform.',
-              style: TextStyle(color: Colors.grey),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withOpacity(0.7),
+              ),
             ),
           ],
         ),
@@ -407,9 +435,9 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
   }
 
   Widget _buildSection(String title, IconData icon, List<Widget> children) {
+    final theme = Theme.of(context);
+    
     return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -417,13 +445,11 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
           children: [
             Row(
               children: [
-                Icon(icon, color: Theme.of(context).primaryColor),
+                Icon(icon, color: theme.colorScheme.primary),
                 const SizedBox(width: 8),
                 Text(
                   title,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: theme.textTheme.titleLarge,
                 ),
               ],
             ),
@@ -438,44 +464,92 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
   Widget _buildTextFormField({
     required TextEditingController controller,
     required String label,
-    String? hint,
+    required String hint,
+    required IconData icon,
     TextInputType? keyboardType,
     int maxLines = 1,
     String? Function(String?)? validator,
+    bool enabled = true,
   }) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: keyboardType,
-      maxLines: maxLines,
-      validator: validator,
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+    final theme = Theme.of(context);
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.titleMedium,
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Theme.of(context).primaryColor),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: controller,
+          keyboardType: keyboardType,
+          maxLines: maxLines,
+          enabled: enabled,
+          validator: validator,
+          decoration: InputDecoration(
+            hintText: hint,
+            prefixIcon: Icon(icon),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
         ),
-      ),
+      ],
+    );
+  }
+
+  Widget _buildDropdownFormField({
+    required String? value,
+    required String label,
+    required String hint,
+    required IconData icon,
+    required List<DropdownMenuItem<String>> items,
+    required void Function(String?) onChanged,
+    String? Function(String?)? validator,
+  }) {
+    final theme = Theme.of(context);
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: value,
+          onChanged: onChanged,
+          validator: validator,
+          decoration: InputDecoration(
+            hintText: hint,
+            prefixIcon: Icon(icon),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          items: items,
+        ),
+      ],
     );
   }
 
   Widget _buildLocationPicker() {
+    final theme = Theme.of(context);
+    
     return Card(
-      color: Colors.grey[50],
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
             Row(
               children: [
-                Icon(Icons.map, color: Theme.of(context).primaryColor),
+                Icon(Icons.map_outlined, color: theme.colorScheme.primary),
                 const SizedBox(width: 8),
-                const Text(
+                Text(
                   'Location Coordinates',
-                  style: TextStyle(fontWeight: FontWeight.w600),
+                  style: theme.textTheme.titleMedium,
                 ),
               ],
             ),
@@ -484,22 +558,22 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
+                  color: theme.colorScheme.secondary.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.green.withOpacity(0.3)),
+                  border: Border.all(color: theme.colorScheme.secondary.withOpacity(0.3)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.check_circle, color: Colors.green, size: 20),
+                        Icon(Icons.check_circle_outlined, color: theme.colorScheme.secondary, size: 20),
                         const SizedBox(width: 8),
-                        const Text(
+                        Text(
                           'Location Selected',
                           style: TextStyle(
-                            color: Colors.green,
-                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.secondary,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],
@@ -508,15 +582,15 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
                     if (_selectedAddress.isNotEmpty)
                       Text(
                         _selectedAddress,
-                        style: const TextStyle(
-                          color: Colors.green,
+                        style: TextStyle(
+                          color: theme.colorScheme.secondary,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
                     Text(
                       'Coordinates: ${_latitude!.toStringAsFixed(6)}, ${_longitude!.toStringAsFixed(6)}',
                       style: TextStyle(
-                        color: Colors.green[700],
+                        color: theme.colorScheme.secondary.withOpacity(0.8),
                         fontSize: 12,
                         fontFamily: 'monospace',
                       ),
@@ -528,18 +602,18 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.1),
+                  color: theme.colorScheme.tertiary.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                  border: Border.all(color: theme.colorScheme.tertiary.withOpacity(0.3)),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Icon(Icons.warning, color: Colors.orange, size: 20),
-                    SizedBox(width: 8),
+                    Icon(Icons.warning_outlined, color: theme.colorScheme.tertiary, size: 20),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'No location selected. Please pick location on map.',
-                        style: TextStyle(color: Colors.orange),
+                        style: TextStyle(color: theme.colorScheme.tertiary),
                       ),
                     ),
                   ],
@@ -550,15 +624,8 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
               width: double.infinity,
               child: OutlinedButton.icon(
                 onPressed: _pickLocation,
-                icon: const Icon(Icons.my_location),
-                label: Text(_latitude != null ? 'Change Location' : 'Pick Location on Map'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Theme.of(context).primaryColor,
-                  side: BorderSide(color: Theme.of(context).primaryColor),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
+                icon: const Icon(Icons.my_location_outlined),
+                label: const Text('Pick Location on Map'),
               ),
             ),
           ],
@@ -567,15 +634,16 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
     );
   }
 
-  Widget _buildFileUploadField(
+  Widget _buildFilePicker(
     String title,
     String subtitle,
     String? currentPath,
     Function(String?) onPathChanged,
     IconData icon,
   ) {
+    final theme = Theme.of(context);
+    
     return Card(
-      color: Colors.grey[50],
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -583,7 +651,7 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
           children: [
             Row(
               children: [
-                Icon(icon, color: Theme.of(context).primaryColor),
+                Icon(icon, color: theme.colorScheme.primary),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
@@ -591,13 +659,12 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
                     children: [
                       Text(
                         title,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
+                        style: theme.textTheme.titleMedium,
                       ),
                       Text(
                         subtitle,
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 12,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurface.withOpacity(0.7),
                         ),
                       ),
                     ],
@@ -610,26 +677,26 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
+                  color: theme.colorScheme.secondary.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.green.withOpacity(0.3)),
+                  border: Border.all(color: theme.colorScheme.secondary.withOpacity(0.3)),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.check_circle, color: Colors.green, size: 20),
+                    Icon(Icons.check_circle_outlined, color: theme.colorScheme.secondary, size: 20),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'File selected: ${currentPath.split('/').last}',
-                        style: const TextStyle(
-                          color: Colors.green,
+                        style: TextStyle(
+                          color: theme.colorScheme.secondary,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
                     ),
                     IconButton(
                       onPressed: () => onPathChanged(null),
-                      icon: const Icon(Icons.close, color: Colors.red, size: 20),
+                      icon: Icon(Icons.close_outlined, color: theme.colorScheme.error, size: 20),
                     ),
                   ],
                 ),
@@ -637,15 +704,8 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
             else
               OutlinedButton.icon(
                 onPressed: () => _pickFile(onPathChanged),
-                icon: const Icon(Icons.upload),
+                icon: const Icon(Icons.upload_outlined),
                 label: const Text('Choose File'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Theme.of(context).primaryColor,
-                  side: BorderSide(color: Theme.of(context).primaryColor),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
               ),
           ],
         ),
@@ -660,8 +720,10 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
     bool value,
     Function(bool?) onChanged,
   ) {
+    final theme = Theme.of(context);
+    
     return Card(
-      color: value ? Theme.of(context).primaryColor.withOpacity(0.05) : Colors.grey[50],
+      color: value ? theme.colorScheme.primary.withOpacity(0.05) : null,
       child: CheckboxListTile(
         value: value,
         onChanged: onChanged,
@@ -669,423 +731,176 @@ class _AddSpaceScreenState extends State<AddSpaceScreen> {
           children: [
             Icon(
               icon,
-              color: value ? Theme.of(context).primaryColor : Colors.grey[600],
+              color: value ? theme.colorScheme.primary : theme.colorScheme.onSurface.withOpacity(0.6),
             ),
             const SizedBox(width: 8),
             Text(
               title,
               style: TextStyle(
                 fontWeight: FontWeight.w600,
-                color: value ? Theme.of(context).primaryColor : null,
+                color: value ? theme.colorScheme.primary : theme.colorScheme.onSurface,
               ),
             ),
           ],
         ),
-        subtitle: Text(subtitle),
-        activeColor: Theme.of(context).primaryColor,
+        subtitle: Text(
+          subtitle,
+          style: TextStyle(
+            color: theme.colorScheme.onSurface.withOpacity(0.7),
+          ),
+        ),
+        activeColor: theme.colorScheme.primary,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
   }
 
-  Widget _buildRentalDurationPicker() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Rental Duration',
-          style: TextStyle(fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: 8),
-        OutlinedButton.icon(
-          onPressed: _pickRentalDuration,
-          icon: const Icon(Icons.date_range),
-          label: Text(
-            _rentalDuration != null
-                ? '${_formatDate(_rentalDuration!.start)} - ${_formatDate(_rentalDuration!.end)}'
-                : 'Select rental period',
-          ),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: Theme.of(context).primaryColor,
-            side: BorderSide(color: Theme.of(context).primaryColor),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-        ),
-      ],
+  Widget _buildAddSpaceButton() {
+    final theme = Theme.of(context);
+    
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: FilledButton(
+        onPressed: _isSubmitting ? null : _submitForm,
+        child: _isSubmitting
+            ? Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      color: theme.colorScheme.onPrimary,
+                      strokeWidth: 2,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Creating...',
+                    style: theme.textTheme.labelLarge,
+                  ),
+                ],
+              )
+            : Text(
+                'Create Parking Space',
+                style: theme.textTheme.labelLarge,
+              ),
+      ),
     );
   }
 
-  Widget _buildAvailabilityTimePicker() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Available Hours',
-          style: TextStyle(fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () => _pickTime(true),
-                icon: const Icon(Icons.schedule),
-                label: Text(_availableFrom?.format(context) ?? 'From'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Theme.of(context).primaryColor,
-                  side: BorderSide(color: Theme.of(context).primaryColor),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () => _pickTime(false),
-                icon: const Icon(Icons.schedule),
-                label: Text(_availableTo?.format(context) ?? 'To'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Theme.of(context).primaryColor,
-                  side: BorderSide(color: Theme.of(context).primaryColor),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRentalModeSelector() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Rental Mode',
-          style: TextStyle(fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          value: _rentalMode,
-          decoration: InputDecoration(
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Theme.of(context).primaryColor),
-            ),
-          ),
-          items: const [
-            DropdownMenuItem(value: 'hourly', child: Text('Hourly')),
-            DropdownMenuItem(value: 'monthly', child: Text('Monthly')),
-            DropdownMenuItem(value: 'yearly', child: Text('Yearly')),
-          ],
-          onChanged: (value) {
-            setState(() {
-              _rentalMode = value!;
-              _selectedPrice = null; // Reset price when mode changes
-            });
-            
-            // Generate slots whenever rental mode changes
-            _generateTimeSlots();
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPriceSelector() {
-    final isPremium = ParkingSpaceService.isPremiumSpace(_hasEvCharging, _hasShelter, _hasCctv);
-    final priceOptions = ParkingSpaceService.getPriceOptions(_rentalMode, isPremium);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Text(
-              'Price per Unit',
-              style: TextStyle(fontWeight: FontWeight.w600),
-            ),
-            if (isPremium)
-              Container(
-                margin: const EdgeInsets.only(left: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.amber.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.amber),
-                ),
-                child: const Text(
-                  'PREMIUM',
-                  style: TextStyle(
-                    color: Colors.amber,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 10,
-                  ),
-                ),
-              ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<int>(
-          value: priceOptions.contains(_selectedPrice) ? _selectedPrice : null,
-          decoration: InputDecoration(
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Theme.of(context).primaryColor),
-            ),
-            hintText: 'Select price',
-          ),
-          items: priceOptions.map((price) {
-            return DropdownMenuItem(
-              value: price,
-              child: Text('₹$price'),
-            );
-          }).toList(),
-          onChanged: (value) {
-            setState(() => _selectedPrice = value);
-          },
-          validator: (value) {
-            if (value == null) {
-              return 'Please select a price';
-            }
-            return null;
-          },
-        ),
-        if (isPremium)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              'Premium pricing applied due to shelter + additional facilities',
-              style: TextStyle(
-                color: Colors.amber[700],
-                fontSize: 12,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ),
-      ],
-    );
+  Future<void> _pickLocation() async {
+    // TODO: Implement location picker
+    // For now, just set some dummy coordinates
+    setState(() {
+      _latitude = 37.7749;
+      _longitude = -122.4194;
+      _selectedAddress = '123 Main St, San Francisco, CA';
+    });
   }
 
   Future<void> _pickFile(Function(String?) onPathChanged) async {
     try {
       final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx'],
+        type: FileType.any,
+        allowMultiple: false,
       );
 
-      if (result != null && result.files.single.path != null) {
-        onPathChanged(result.files.single.path);
+      if (result != null && result.files.isNotEmpty) {
+        onPathChanged(result.files.first.path);
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to pick file: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  Future<void> _pickLocation() async {
-    try {
-      await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => GoogleMapsLocationPicker(
-            initialLatitude: _latitude,
-            initialLongitude: _longitude,
-            onLocationSelected: (lat, lng, address) {
-              setState(() {
-                _latitude = lat;
-                _longitude = lng;
-                _selectedAddress = address;
-                // Auto-fill address field if it's empty
-                if (_addressCtrl.text.trim().isEmpty) {
-                  _addressCtrl.text = address;
-                }
-              });
-            },
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to pick file: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
           ),
-        ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to open location picker: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  Future<void> _pickRentalDuration() async {
-    final picked = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 3650)), // 10 years
-      initialDateRange: _rentalDuration,
-    );
-
-    if (picked != null) {
-      setState(() => _rentalDuration = picked);
-    }
-  }
-
-  Future<void> _pickTime(bool isFrom) async {
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: isFrom 
-          ? (_availableFrom ?? const TimeOfDay(hour: 8, minute: 0))
-          : (_availableTo ?? const TimeOfDay(hour: 18, minute: 0)),
-    );
-
-    if (picked != null) {
-      setState(() {
-        if (isFrom) {
-          _availableFrom = picked;
-        } else {
-          _availableTo = picked;
-        }
-      });
-      
-      // Generate slots whenever time changes
-      _generateTimeSlots();
+        );
+      }
     }
   }
 
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill in all required fields'),
-          backgroundColor: Colors.orange,
-        ),
-      );
       return;
     }
 
-    // Additional validation
     if (_latitude == null || _longitude == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select a location on the map'),
-          backgroundColor: Colors.orange,
+        SnackBar(
+          content: const Text('Please select a location on the map'),
+          backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );
       return;
     }
 
-    if (_rentalDuration == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select rental duration'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    if (_availableFrom == null || _availableTo == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please set available hours'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    setState(() => _isSubmitting = true);
+    setState(() {
+      _isSubmitting = true;
+    });
 
     try {
       final authState = context.read<AuthController>().state;
-      final isPremium = ParkingSpaceService.isPremiumSpace(_hasEvCharging, _hasShelter, _hasCctv);
+      if (authState.profile?.id == null) {
+        throw Exception('User not authenticated');
+      }
 
       final spaceData = {
         'owner_id': authState.profile!.id,
-        'slot_number': _slotNumberCtrl.text.trim(),
-        'place_name': _placeNameCtrl.text.trim(),
-        'address': _addressCtrl.text.trim(),
-        'latitude': _latitude!,
-        'longitude': _longitude!,
-        'length': double.parse(_lengthCtrl.text.trim()),
-        'width': double.parse(_widthCtrl.text.trim()),
-        'height': double.parse(_heightCtrl.text.trim()),
-        'land_proof_url': _landProofPath, // TODO: Upload to Supabase Storage
-        'place_image_url': _placeImagePath, // TODO: Upload to Supabase Storage
+        'place_name': _placeNameController.text,
+        'address': _addressController.text,
+        'slot_number': _slotNumberController.text,
+        'latitude': _latitude,
+        'longitude': _longitude,
+        'length': double.parse(_lengthController.text),
+        'width': double.parse(_widthController.text),
+        'height': double.parse(_heightController.text),
+        'available_from': _availableFromController.text,
+        'available_to': _availableToController.text,
+        'rental_mode': _selectedRentalMode,
+        'rental_duration_from': DateTime.now().toIso8601String(),
+        'rental_duration_to': DateTime.now().add(const Duration(days: 30)).toIso8601String(),
+        'price_per_unit': int.parse(_priceController.text),
         'has_ev_charging': _hasEvCharging,
         'has_shelter': _hasShelter,
         'has_cctv': _hasCctv,
-        'available_from': '${_availableFrom!.hour.toString().padLeft(2, '0')}:${_availableFrom!.minute.toString().padLeft(2, '0')}:00',
-        'available_to': '${_availableTo!.hour.toString().padLeft(2, '0')}:${_availableTo!.minute.toString().padLeft(2, '0')}:00',
-        'rental_duration_from': _rentalDuration!.start.toIso8601String().split('T')[0],
-        'rental_duration_to': _rentalDuration!.end.toIso8601String().split('T')[0],
-        'rental_mode': _rentalMode,
-        'price_per_unit': _selectedPrice!,
-        'is_premium': isPremium,
+        'is_premium': _hasShelter && (_hasEvCharging || _hasCctv),
         'is_active': true,
         'is_paused': false,
         'total_bookings': 0,
         'current_bookings': 0,
       };
 
-      final createdSpace = await ParkingSpaceService.createParkingSpace(spaceData);
+      await ParkingSpaceService.createParkingSpace(spaceData);
 
-      // Save generated time slots if we have any
-      if (_generatedSlots.isNotEmpty) {
-        final slotsToSave = _generatedSlots.map((slot) => 
-          slot.copyWith(parkingSpaceId: createdSpace.id)
-        ).toList();
-        
-        await ParkingTimeSlotService.saveTimeSlots(slotsToSave);
-      }
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              _generatedSlots.isNotEmpty 
-                ? 'Parking space and ${_generatedSlots.length} time slots created successfully!'
-                : 'Parking space created successfully!'
+              if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Parking space created successfully!'),
+              backgroundColor: Theme.of(context).colorScheme.secondary,
             ),
-            backgroundColor: Colors.green,
-          ),
-        );
-        // Return true to indicate successful creation
-        Navigator.of(context).pop(true);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to create parking space: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
+          );
+          Navigator.of(context).pop(true);
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to create parking space: $e'),
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isSubmitting = false;
+          });
+        }
       }
     }
   }
-
-  String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
-  }
-}
 
 

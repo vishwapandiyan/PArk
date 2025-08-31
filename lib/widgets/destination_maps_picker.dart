@@ -88,18 +88,19 @@ class _DestinationMapsPickerState extends State<DestinationMapsPicker>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: const Text('Search Destination'),
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 0,
+        title: Text(
+          'Search Destination',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
         systemOverlayStyle: SystemUiOverlayStyle.light,
         actions: [
           if (_selectedDestination != null)
             IconButton(
               onPressed: _confirmDestination,
-              icon: const Icon(Icons.check_circle),
+              icon: const Icon(Icons.check_circle_outlined),
               tooltip: 'Confirm Destination',
             ),
         ],

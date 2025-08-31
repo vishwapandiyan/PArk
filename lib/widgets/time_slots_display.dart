@@ -143,6 +143,7 @@ class _TimeSlotsDisplayState extends State<TimeSlotsDisplay> {
   }
 
   Widget _buildSlotCard(ParkingTimeSlot slot, int index) {
+    final theme = Theme.of(context);
     final isPaused = slot.isPaused;
     final isBooked = slot.isBooked;
 
@@ -152,19 +153,19 @@ class _TimeSlotsDisplayState extends State<TimeSlotsDisplay> {
     String statusText;
 
     if (isBooked) {
-      cardColor = Colors.red.shade50;
-      textColor = Colors.red.shade700;
-      statusIcon = Icons.event_busy;
+      cardColor = theme.colorScheme.error.withOpacity(0.1);
+      textColor = theme.colorScheme.error;
+      statusIcon = Icons.event_busy_outlined;
       statusText = 'Booked';
     } else if (isPaused) {
-      cardColor = Colors.orange.shade50;
-      textColor = Colors.orange.shade700;
-      statusIcon = Icons.pause_circle;
+      cardColor = theme.colorScheme.tertiary.withOpacity(0.1);
+      textColor = theme.colorScheme.tertiary;
+      statusIcon = Icons.pause_circle_outlined;
       statusText = 'Paused';
     } else {
-      cardColor = Colors.green.shade50;
-      textColor = Colors.green.shade700;
-      statusIcon = Icons.check_circle;
+      cardColor = theme.colorScheme.secondary.withOpacity(0.1);
+      textColor = theme.colorScheme.secondary;
+      statusIcon = Icons.check_circle_outlined;
       statusText = 'Active';
     }
 
